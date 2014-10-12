@@ -20,41 +20,27 @@
  *
  */
 
-#ifndef TEST_OBJECT_H
-#define TEST_OBJECT_H
+#ifndef REGISTER_METHODS_H
+#define REGISTER_METHODS_H
 
-#include "object.hpp"
-#include "register_constructor.hpp"
-#include "register_methods.hpp"
+#include "reflection_types.hpp"
 
-#include <memory>
+#include <vector>
 
-class test_object: public reflection::object
+namespace reflection
 {
-  static const reflection::register_constructor m_registerCtor;
-  static const reflection::register_methods m_registerMethods;
-public:
-  test_object(reflection::object_dtor deleter);
-  virtual std::string name() const { return "test_object"; }
-  
-  void test_method_void() const;
-  double test_method_real(int x, int y) const;
-  void test_fill_vector(int* data, std::size_t n) const;
-};
-
-extern "C" 
-void* create_test_object();
-
-extern "C"
-void destroy_test_object(void* deletedObject);
-
-extern "C"
-void c_test_method_void(void* obj, ...);
-
-extern "C"
-double c_test_method_real(void* obj, ...);
-
-extern "C"
-void c_test_fill_vector(void* obj, ...);
-
-#endif // TEST_OBJECT_H
+  class register_methods
+  {
+    std::string m_className;
+  public:
+    register_methods(const std::string& className, const std::vector<function_pair_names>& methods);
+    ~register_methods();
+    
+    // Not copyable, not movable
+    register_methods(const register_methods&) = delete;
+    register_methods& operator=(const register_methods&) = delete;
+    register_methods(register_methods&&) = delete;
+    register_methods& operator=(register_methods&&) = delete;
+  };
+}
+#endif // REGISTER_METHODS_H

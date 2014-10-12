@@ -27,6 +27,8 @@
 #include <cstddef>
 #include <unordered_map>
 #include <memory>
+#include <string>
+#include <vector>
 
 // Project headers
 #include "reflection_types.hpp"
@@ -45,7 +47,8 @@ namespace reflection
    */
   class object
   { 
-    static std::unordered_map<std::string, std::string> m_hashCtorName;
+    static hash_constructors m_hashCtorName;
+    static hash_methods m_hashClassMethods;
     
     object_dtor m_deleter;
   protected:
@@ -53,9 +56,13 @@ namespace reflection
     virtual ~object() = 0;
   public:
     inline const object_dtor deleter() const { return static_cast<const object_dtor>(m_deleter); }
+    virtual std::string name() const { return "object"; }
     
     static std::string constructor(const std::string& className);
+    static std::string get_c_wrapper_name(const std::string& className, const std::string& cppFunctionName);
+    
     friend class register_constructor;
+    friend class register_methods;
   };
   
   template <typename Derived>

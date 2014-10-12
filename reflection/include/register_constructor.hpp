@@ -27,19 +27,7 @@
 #include <string>
 
 namespace reflection
-{
-  
-  class class_already_exists: std::runtime_error
-  {
-    std::string m_msg;
-  public:
-    explicit class_already_exists(const std::string& arg)
-    : std::runtime_error{arg}, m_msg{arg}
-    {}
-    
-    virtual const char* what() const noexcept { return m_msg.c_str(); }
-  };
-  
+{ 
   /**
    * @brief This class provides functionality of static constructor and static destructor for classes
    * that derive from reflection::object. 

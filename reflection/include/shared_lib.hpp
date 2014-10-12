@@ -27,9 +27,12 @@
 #include <string>
 #include <dlfcn.h>
 #include <stdexcept>
+#include <type_traits>
+#include <limits>
 
 // Project headers
 #include "reflection_types.hpp"
+#include "object.hpp"
 
 namespace reflection
 {
@@ -113,6 +116,45 @@ namespace reflection
     shared_lib(shared_lib&& moved);
     shared_lib& operator=(shared_lib&& moved);
   };
+  
+  // Invoke function when return type is void
+  template <typename RetVal, typename ...Args>
+  typename std::enable_if<std::is_same<RetVal, void>::value, RetVal>::type
+  invoke_function(const shared_lib& lib, object* obj, const std::string& cppFunctionName, Args... args)
+  {
+    std::string cFunctionName = object::get_c_wrapper_name(obj->name(), cppFunctionName);
+    if (cFunctionName.empty())
+      return;
+    
+    object_method cFunction = reinterpret_cast<object_method>(lib.get_c_function(cFunctionName));
+    ((*cFunction)(obj, args...));
+  }
+  
+  // Invoke function when return type is object
+  template <typename RetVal, typename ...Args>
+  typename std::enable_if<std::is_same<RetVal, object*>::value, RetVal>::type
+  invoke_function(const shared_lib& lib, object* obj, const std::string& cppFunctionName, Args... args)
+  {
+    std::string cFunctionName = object::get_c_wrapper_name(obj->name(), cppFunctionName);
+    if (cFunctionName.empty())
+      return nullptr;
+    
+    object_method cFunction = reinterpret_cast<object_method>(lib.get_c_function(cFunctionName));
+    return static_cast<RetVal>((*cFunction)(obj, args...));
+  }
+  
+  // Invoke function when return type is floating point
+  template <typename RetVal, typename ...Args>
+  typename std::enable_if<std::is_arithmetic<RetVal>::value, RetVal>::type
+  invoke_function(const shared_lib& lib, object* obj, const std::string& cppFunctionName, Args... args)
+  {
+    std::string cFunctionName = object::get_c_wrapper_name(obj->name(), cppFunctionName);
+    if (cFunctionName.empty())
+      return std::numeric_limits<RetVal>::min();
+    
+    object_method_real cFunction = reinterpret_cast<object_method_real>(lib.get_c_function(cFunctionName));
+    return (*cFunction)(obj, args...);
+  }
 }
 
 #endif // SHARED_LIB_H
