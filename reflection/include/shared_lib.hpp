@@ -36,8 +36,6 @@ namespace reflection
   
   /**
    * @brief Simple class that represents exception fired when loading of shared library fails.
-   * NOTE: As shared library load failure is undetectable at compile time this class extends std::runtime_error,
-   * not std::logic_error.
    * 
    */
   class shared_lib_load_failed: public std::runtime_error

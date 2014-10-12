@@ -35,4 +35,7 @@ namespace reflection
   {
     return m_hashCtorName[className];
   }
+  
+  // NOTE: This destructor MUST NOT be made inline cause of vtable lookup! It would break runtime destruction.
+  object::~object() {}
 }

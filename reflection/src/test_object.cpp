@@ -28,7 +28,7 @@
 using namespace reflection;
 using namespace std;
 
-const register_yourself test_object::m_register{"test_object", "create_test_object"};
+const register_constructor test_object::m_register{"test_object", "create_test_object"};
 
 test_object::test_object(reflection::object_dtor deleter)
 : object{deleter}

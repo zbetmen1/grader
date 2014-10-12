@@ -31,7 +31,6 @@ namespace reflection
 {
   int shared_lib::convert(shared_lib_mode flag)
   {
-    // TODO: Think how to remove ugly switch!
     switch (flag) {
       case shared_lib_mode::LAZY:
         return RTLD_LAZY;
@@ -43,7 +42,9 @@ namespace reflection
   }
   
   shared_lib::shared_lib(const path& p, shared_lib_mode flag)
-  {
+  { // TODO: Consider how to replace typedef to std::string with real path class. In this stage 
+    // only libraries on absolute path or in environment path can be found...
+    
     // Try to load shared library
     m_impl = dlopen(p.c_str(), convert(flag));
     if (nullptr == m_impl)

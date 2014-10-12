@@ -24,13 +24,13 @@
 #define TEST_OBJECT_H
 
 #include "object.hpp"
-#include "register_yourself.hpp"
+#include "register_constructor.hpp"
 
 #include <memory>
 
 class test_object: public reflection::object
 {
-  static const reflection::register_yourself m_register;
+  static const reflection::register_constructor m_register;
 public:
   test_object(reflection::object_dtor deleter);
 };

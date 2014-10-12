@@ -20,30 +20,34 @@
  *
  */
 
-#ifndef REGISTER_YOURSELF_H
-#define REGISTER_YOURSELF_H
+#include "register_constructor.hpp"
+#include "object.hpp"
 
-#include <stdexcept>
+#include <string>
 
-namespace reflection
+using namespace std;
+
+namespace reflection  
 {
-  
-  class class_already_exists: std::runtime_error
+  register_constructor::register_constructor(const string& className, const string& ctorName)
+  : m_className{className}
   {
-    std::string m_msg;
-  public:
-    explicit class_already_exists(const std::string& arg)
-    : std::runtime_error{arg}, m_msg{arg}
-    {}
-    
-    virtual const char* what() const noexcept { return m_msg.c_str(); }
-  };
+    if (object::m_hashCtorName.cend() == object::m_hashCtorName.find(className))
+    {
+      object::m_hashCtorName[className] = ctorName;
+    }
+    else
+    {
+      string msg{"Class with name '"};
+      msg += className;
+      msg += "' is already registered and there can't be two classes of same name registered!";
+      throw class_already_exists{msg.c_str()};
+    }
+  }
   
-  class register_yourself
+  register_constructor::~register_constructor()
   {
-  public:
-    explicit register_yourself(const std::string& className, const std::string& ctorName);
-  };
-}
+    object::m_hashCtorName.erase(m_className);
+  }
 
-#endif // REGISTER_YOURSELF_H
+}
