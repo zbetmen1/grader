@@ -26,7 +26,7 @@
 #include <stdexcept>
 #include <string>
 
-namespace reflection
+namespace dynamic
 { 
   /**
    * @brief This class provides functionality of static constructor and static destructor for classes

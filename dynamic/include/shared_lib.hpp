@@ -29,12 +29,13 @@
 #include <stdexcept>
 #include <type_traits>
 #include <limits>
+#include <memory>
 
 // Project headers
 #include "reflection_types.hpp"
 #include "object.hpp"
 
-namespace reflection
+namespace dynamic
 {
   
   /**
@@ -98,7 +99,7 @@ namespace reflection
      * @param className Name of class to be created.
      * @return reflection::object*
      */
-    object* make_object(const std::string& className) const;
+    safe_object make_object(const std::string& className) const;
 
     /**
      * @brief Gets pointer to function, with C linkage, stored in this shared library by name.

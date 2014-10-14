@@ -27,7 +27,7 @@
 
 using namespace std;
 
-namespace reflection 
+namespace dynamic 
 {
   int shared_lib::convert(shared_lib_mode flag)
   {
@@ -64,20 +64,21 @@ namespace reflection
     }
   }
 
-  object* shared_lib::make_object(const string& className) const
+  safe_object shared_lib::make_object(const string& className) const
   {
     // Get constructor name for class name and check that the name is registered
     auto ctorName = object::constructor(className);
     if (ctorName.empty())
-      return nullptr;
+      return safe_object{nullptr, nullptr};
     
     // Check that this class is located in this shared library (other possibility is that constructor is misspelled during registration)
     object_ctor ctor = reinterpret_cast<object_ctor>(dlsym(m_impl, ctorName.c_str()));
     if (nullptr == ctor)
-      return nullptr;
+      return safe_object{nullptr, nullptr};
     
     // Create new object
-    return (*ctor)();
+    object* obj = (*ctor)();
+    return safe_object{obj, obj->deleter()};
   }
 
   void* shared_lib::get_c_function(const string& functionName) const

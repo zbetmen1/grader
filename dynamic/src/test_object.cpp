@@ -26,11 +26,11 @@
 #include <iostream>
 #include <cstdarg>
 
-using namespace reflection;
+using namespace dynamic;
 using namespace std;
 
-const reflection::register_constructor test_object::m_registerCtor{"test_object", "create_test_object"};
-const reflection::register_methods test_object::m_registerMethods{"test_object", 
+const dynamic::register_constructor test_object::m_registerCtor{"test_object", "create_test_object"};
+const dynamic::register_methods test_object::m_registerMethods{"test_object", 
   { 
     {"test_method_void", "c_test_method_void"}, 
     {"test_method_real", "c_test_method_real"},
@@ -38,7 +38,7 @@ const reflection::register_methods test_object::m_registerMethods{"test_object",
   } 
 };
 
-test_object::test_object(reflection::object_dtor deleter)
+test_object::test_object(dynamic::object_dtor deleter)
 : object{deleter}
 {}
 
@@ -57,7 +57,6 @@ void test_object::test_fill_vector(int* data, size_t n) const
   for (auto i = 0U; i < n; ++i)
     data[i] = i;
 }
-
 
 void* create_test_object()
 {

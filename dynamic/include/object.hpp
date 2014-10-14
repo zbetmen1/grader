@@ -33,7 +33,7 @@
 // Project headers
 #include "reflection_types.hpp"
 
-namespace reflection
+namespace dynamic
 {
   /**
    * @brief This class represents base class for all objects that can be constructed dynamically 
@@ -64,16 +64,6 @@ namespace reflection
     friend class register_constructor;
     friend class register_methods;
   };
-  
-  template <typename Derived>
-  std::unique_ptr<Derived, object_dtor> get_derived_safe(object* obj)
-  {
-    Derived* derived = dynamic_cast<Derived*>(obj);
-    if (nullptr == derived)
-      return std::unique_ptr<Derived, object_dtor>{nullptr, nullptr};
-    else
-      return std::unique_ptr<Derived, object_dtor>{derived, derived->deleter()};
-  }
 }
 
 #endif // OBJECT_H

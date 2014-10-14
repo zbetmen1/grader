@@ -29,12 +29,12 @@
 
 #include <memory>
 
-class test_object: public reflection::object
+class test_object: public dynamic::object
 {
-  static const reflection::register_constructor m_registerCtor;
-  static const reflection::register_methods m_registerMethods;
+  static const dynamic::register_constructor m_registerCtor;
+  static const dynamic::register_methods m_registerMethods;
 public:
-  test_object(reflection::object_dtor deleter);
+  test_object(dynamic::object_dtor deleter);
   virtual std::string name() const { return "test_object"; }
   
   void test_method_void() const;

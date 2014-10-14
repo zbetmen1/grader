@@ -4,8 +4,9 @@
 #include <string>
 #include <unordered_map>
 #include <vector>
+#include <memory>
 
-namespace reflection 
+namespace dynamic 
 {
   class object;
   typedef void (*object_dtor)(void*);
@@ -14,6 +15,7 @@ namespace reflection
   typedef double (*object_method_real)(void*, ...);
   typedef std::size_t (*object_method_unsigned)(void*, ...);
   
+  using safe_object = std::unique_ptr<object, object_dtor>;
   using shared_lib_impl = void*;
   using path = std::string;
   struct function_pair_names

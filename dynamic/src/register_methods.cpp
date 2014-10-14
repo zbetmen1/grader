@@ -20,27 +20,31 @@
  *
  */
 
-#ifndef REGISTER_METHODS_H
-#define REGISTER_METHODS_H
+#include "register_methods.hpp"
+#include <object.hpp>
 
-#include "reflection_types.hpp"
+using namespace std;
 
-#include <vector>
-
-namespace reflection
+namespace dynamic 
 {
-  class register_methods
+  register_methods::register_methods(const std::string& className, const std::vector< function_pair_names >& methods)
+  : m_className{className}
   {
-    std::string m_className;
-  public:
-    register_methods(const std::string& className, const std::vector<function_pair_names>& methods);
-    ~register_methods();
-    
-    // Not copyable, not movable
-    register_methods(const register_methods&) = delete;
-    register_methods& operator=(const register_methods&) = delete;
-    register_methods(register_methods&&) = delete;
-    register_methods& operator=(register_methods&&) = delete;
-  };
+    if (object::m_hashClassMethods.cend() != object::m_hashClassMethods.find(className))
+    {
+      string msg{"Class with name '"};
+      msg += className;
+      msg += "' is already registered and there can't be two classes of same name registered!";
+      throw class_already_exists{msg.c_str()};
+    }
+    else
+    {
+      object::m_hashClassMethods[className] = methods;
+    }
+  }
+
+  register_methods::~register_methods()
+  {
+    object::m_hashClassMethods.erase(m_className);
+  }
 }
-#endif // REGISTER_METHODS_H

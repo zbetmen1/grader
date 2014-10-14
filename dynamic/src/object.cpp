@@ -20,31 +20,42 @@
  *
  */
 
-#include "register_methods.hpp"
-#include <object.hpp>
+#include "object.hpp"
+#include <vector>
 
 using namespace std;
 
-namespace reflection 
-{
-  register_methods::register_methods(const std::string& className, const std::vector< function_pair_names >& methods)
-  : m_className{className}
+namespace dynamic 
+{ 
+  hash_constructors object::m_hashCtorName;
+  hash_methods object::m_hashClassMethods;
+  
+  object::object(object_dtor deleter)
+  : m_deleter{deleter}
   {
-    if (object::m_hashClassMethods.cend() != object::m_hashClassMethods.find(className))
-    {
-      string msg{"Class with name '"};
-      msg += className;
-      msg += "' is already registered and there can't be two classes of same name registered!";
-      throw class_already_exists{msg.c_str()};
-    }
-    else
-    {
-      object::m_hashClassMethods[className] = methods;
-    }
   }
-
-  register_methods::~register_methods()
+  
+  std::string object::constructor(const std::string& className)
   {
-    object::m_hashClassMethods.erase(m_className);
+    return m_hashCtorName[className];
+  }
+  
+  // NOTE: This destructor MUST NOT be made inline cause of vtable lookup! It would break runtime destruction.
+  object::~object() {}
+  
+  std::string object::get_c_wrapper_name(const std::string& className, const std::string& cppFunctionName)
+  {
+    // Check if class was registered with any method
+    vector<function_pair_names> v = m_hashClassMethods[className];
+    if (v.empty())
+      return "";
+    
+    // Iterate through methods
+    for (const auto& p : v)
+      if (p.cpp_function == cppFunctionName)
+        return p.c_function;
+    
+    // We haven't found registered C++ function with name 'cppFunctionName'
+    return "";
   }
 }
