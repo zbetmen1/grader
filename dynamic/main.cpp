@@ -18,16 +18,10 @@ int main(int , char **)
     // Test invoke function for void
     invoke_function<void>(testLib, uniqueTestObject.get(), "test_method_void");
     
-    // Test invoke function for floating point
-    float testReal = invoke_function<float>(testLib, uniqueTestObject.get(), "test_method_real", 5, 2);
-    cerr << "test_method_real returned: " << testReal << endl;
-    
     // Test fill vector
     std::size_t n = 10;
     vector<int> v(n);
-    invoke_function<void>(testLib, uniqueTestObject.get(), "test_fill_vector", &v.front(), n);
-    for (auto j : v)
-      cout << j << endl; 
+    invoke_function<void>(testLib, uniqueTestObject.get(), "test_fill_vector", &v.front(), n); 
   } 
   catch (const shared_lib_load_failed& e) 
   {

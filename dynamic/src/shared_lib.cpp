@@ -72,12 +72,12 @@ namespace dynamic
       return safe_object{nullptr, nullptr};
     
     // Check that this class is located in this shared library (other possibility is that constructor is misspelled during registration)
-    object_ctor ctor = reinterpret_cast<object_ctor>(dlsym(m_impl, ctorName.c_str()));
+    object_ctor ctor = reinterpret_cast<object_ctor_ptr>(dlsym(m_impl, ctorName.c_str()));
     if (nullptr == ctor)
       return safe_object{nullptr, nullptr};
     
     // Create new object
-    object* obj = (*ctor)();
+    object* obj = ctor();
     return safe_object{obj, obj->deleter()};
   }
 

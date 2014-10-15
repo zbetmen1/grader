@@ -5,19 +5,22 @@
 #include <unordered_map>
 #include <vector>
 #include <memory>
+#include <functional>
 
 namespace dynamic 
 {
   class object;
-  typedef void (*object_dtor)(void*);
-  typedef object* (*object_ctor)(void);
-  typedef void* (*object_method)(void*, ...);
-  typedef double (*object_method_real)(void*, ...);
-  typedef std::size_t (*object_method_unsigned)(void*, ...);
   
-  using safe_object = std::unique_ptr<object, object_dtor>;
   using shared_lib_impl = void*;
   using path = std::string;
+  
+  using object_dtor = std::function<void (void*)>;
+  using object_ctor = std::function<object* (void)>;
+  using safe_object = std::unique_ptr<object, object_dtor>;
+  
+  typedef object* (*object_ctor_ptr)(void);
+  typedef void (*object_method_ptr)(void*, ...);
+  
   struct function_pair_names
   {
     std::string cpp_function;
@@ -29,7 +32,7 @@ namespace dynamic
     
     function_pair_names() {}
   };
-
+  
   using hash_constructors = std::unordered_map<std::string, std::string>;
   using hash_methods = std::unordered_map<std::string, std::vector<function_pair_names>>;
   

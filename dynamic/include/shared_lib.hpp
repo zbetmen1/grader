@@ -30,6 +30,7 @@
 #include <type_traits>
 #include <limits>
 #include <memory>
+#include <functional>
 
 // Project headers
 #include "reflection_types.hpp"
@@ -118,43 +119,16 @@ namespace dynamic
     shared_lib& operator=(shared_lib&& moved);
   };
   
-  // Invoke function when return type is void
+  // Invoke function by name
   template <typename RetVal, typename ...Args>
-  typename std::enable_if<std::is_same<RetVal, void>::value, RetVal>::type
-  invoke_function(const shared_lib& lib, object* obj, const std::string& cppFunctionName, Args... args)
+  RetVal invoke_function(const shared_lib& lib, object* obj, const std::string& cppFunctionName, Args... args)
   {
     std::string cFunctionName = object::get_c_wrapper_name(obj->name(), cppFunctionName);
     if (cFunctionName.empty())
       return;
     
-    object_method cFunction = reinterpret_cast<object_method>(lib.get_c_function(cFunctionName));
-    ((*cFunction)(obj, args...));
-  }
-  
-  // Invoke function when return type is object
-  template <typename RetVal, typename ...Args>
-  typename std::enable_if<std::is_same<RetVal, object*>::value, RetVal>::type
-  invoke_function(const shared_lib& lib, object* obj, const std::string& cppFunctionName, Args... args)
-  {
-    std::string cFunctionName = object::get_c_wrapper_name(obj->name(), cppFunctionName);
-    if (cFunctionName.empty())
-      return nullptr;
-    
-    object_method cFunction = reinterpret_cast<object_method>(lib.get_c_function(cFunctionName));
-    return static_cast<RetVal>((*cFunction)(obj, args...));
-  }
-  
-  // Invoke function when return type is floating point
-  template <typename RetVal, typename ...Args>
-  typename std::enable_if<std::is_arithmetic<RetVal>::value, RetVal>::type
-  invoke_function(const shared_lib& lib, object* obj, const std::string& cppFunctionName, Args... args)
-  {
-    std::string cFunctionName = object::get_c_wrapper_name(obj->name(), cppFunctionName);
-    if (cFunctionName.empty())
-      return std::numeric_limits<RetVal>::min();
-    
-    object_method_real cFunction = reinterpret_cast<object_method_real>(lib.get_c_function(cFunctionName));
-    return (*cFunction)(obj, args...);
+    object_method_ptr cFunction = reinterpret_cast<object_method_ptr>(lib.get_c_function(cFunctionName));
+    (*cFunction)(obj, args...);
   }
 }
 
