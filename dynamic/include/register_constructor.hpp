@@ -28,22 +28,25 @@
 
 namespace dynamic
 { 
+  class class_already_exists: public std::runtime_error
+  {
+  public:
+    explicit class_already_exists(const char* arg)
+    : std::runtime_error{arg}
+    {}
+  };
+  
   /**
    * @brief This class provides functionality of static constructor and static destructor for classes
-   * that derive from reflection::object. 
-   * @details Every class that derives from reflection::object MUST define one static const reflection::register_yourself 
-   * member. It should be initialized with name of derived class and name of C function that will destroy class objects. In it's
-   * construction reflection::register_yourself object will register C destructor for derived class. In it's destruction it will
-   * unregister derived class. In case when there is a class with same name as derived registered, constructor of 
-   * reflection::register_yourself will throw reflection::class_already_exists exception.
+   * that derive from reflection::object.
    * 
    */
   class register_constructor
   {
     std::string m_className;
   public:
-    explicit register_constructor(const std::string& className, const std::string& ctorName);
-    ~register_constructor();
+    explicit register_constructor(const char* className, const char* ctorName) noexcept;
+    ~register_constructor() noexcept;
     
     // This class is not copyable, nor movable
     register_constructor(const register_constructor&) = delete;

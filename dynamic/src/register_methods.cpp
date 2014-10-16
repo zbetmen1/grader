@@ -27,24 +27,4 @@ using namespace std;
 
 namespace dynamic 
 {
-  register_methods::register_methods(const std::string& className, const std::vector< function_pair_names >& methods)
-  : m_className{className}
-  {
-    if (object::m_hashClassMethods.cend() != object::m_hashClassMethods.find(className))
-    {
-      string msg{"Class with name '"};
-      msg += className;
-      msg += "' is already registered and there can't be two classes of same name registered!";
-      throw class_already_exists{msg.c_str()};
-    }
-    else
-    {
-      object::m_hashClassMethods[className] = methods;
-    }
-  }
-
-  register_methods::~register_methods()
-  {
-    object::m_hashClassMethods.erase(m_className);
-  }
 }

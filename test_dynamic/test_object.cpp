@@ -20,41 +20,31 @@
  *
  */
 
-#ifndef TEST_OBJECT_H
-#define TEST_OBJECT_H
+#include "test_object.hpp"
 
-#include "object.hpp"
-#include "register_constructor.hpp"
-#include "register_methods.hpp"
+#include <string>
+#include <iostream>
+#include <cstdarg>
 
-#include <memory>
+using namespace dynamic;
+using namespace std;
 
-class test_object: public dynamic::object
+REGISTER_OBJECT(test_object, create_test_object)
+
+test_object::test_object(dynamic::object_dtor deleter)
+: object{deleter}
+{}
+
+void* create_test_object()
 {
-  static const dynamic::register_constructor m_registerCtor;
-  static const dynamic::register_methods m_registerMethods;
-public:
-  test_object(dynamic::object_dtor deleter);
-  virtual std::string name() const { return "test_object"; }
-  
-  void test_method_void() const;
-  double test_method_real(int x, int y) const;
-  void test_fill_vector(int* data, std::size_t n) const;
-};
+  test_object* obj = new test_object{&destroy_test_object};
+  cerr << "test_object created!" << endl;
+  return static_cast<void*>(obj);
+}
 
-extern "C" 
-void* create_test_object();
-
-extern "C"
-void destroy_test_object(void* deletedObject);
-
-extern "C"
-void c_test_method_void(void* obj, ...);
-
-extern "C"
-double c_test_method_real(void* obj, ...);
-
-extern "C"
-void c_test_fill_vector(void* obj, ...);
-
-#endif // TEST_OBJECT_H
+void destroy_test_object(void* deletedObject)
+{
+  test_object* obj = static_cast<test_object*>(deletedObject);
+  delete obj;
+  cerr << "test_object deleted!" << endl;
+}

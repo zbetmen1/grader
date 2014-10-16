@@ -147,7 +147,7 @@ namespace dynamic
   template <typename T> 
   T any_cast(any&& x)
   {
-    static_assert(false, "Applying any_cast to temporary objects is forbidden for now.");
+//     static_assert(std::false_type::value, "Applying any_cast to temporary objects is forbidden for now.");
     return T{};
   }
 }

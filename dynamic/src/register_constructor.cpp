@@ -24,30 +24,43 @@
 #include "object.hpp"
 
 #include <string>
+#include <iostream>
 
 using namespace std;
 
 namespace dynamic  
 {
-  register_constructor::register_constructor(const string& className, const string& ctorName)
+  register_constructor::register_constructor(const char* className, const char* ctorName) noexcept
   : m_className{className}
   {
-    if (object::m_hashCtorName.cend() == object::m_hashCtorName.find(className))
+    try
     {
-      object::m_hashCtorName[className] = ctorName;
-    }
-    else
-    {
-      string msg{"Class with name '"};
-      msg += className;
-      msg += "' is already registered and there can't be two classes of same name registered!";
-      throw class_already_exists{msg.c_str()};
+      if (object::m_hashCtorName.cend() == object::m_hashCtorName.find(className))
+      {
+        object::m_hashCtorName[className] = ctorName;
+      }
+      else
+      {
+        cerr << "Class with name '" << className << "' is already registered!" << '\n';
+        cerr << "Logging support should be added!" << endl;
+      } 
+    } catch(const std::exception& e) {
+      cerr << e.what() << endl;
+      cerr << "Logging support should be added!" << endl;
     }
   }
   
-  register_constructor::~register_constructor()
+  register_constructor::~register_constructor() noexcept
   {
-    object::m_hashCtorName.erase(m_className);
+    try 
+    {
+      object::m_hashCtorName.erase(m_className);
+    } 
+    catch (const exception& e) 
+    {
+      cerr << e.what() << endl;
+      cerr << "Logging support should be added!" << endl;
+    }
   }
 
 }

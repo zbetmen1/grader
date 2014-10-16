@@ -23,12 +23,23 @@
 #ifndef REGISTER_METHODS_H
 #define REGISTER_METHODS_H
 
-#include "reflection_types.hpp"
-
 #include <vector>
+#include <string>
 
 namespace dynamic
 {
+  struct function_pair_names
+  {
+    std::string cpp_function;
+    std::string c_function;
+    
+    function_pair_names(const std::string& cpp, const std::string& c)
+    : cpp_function{cpp}, c_function{c}
+    {}
+    
+    function_pair_names() {}
+  };
+  
   class register_methods
   {
     std::string m_className;

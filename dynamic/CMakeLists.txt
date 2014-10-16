@@ -17,7 +17,4 @@ target_link_libraries(dynamic dl)
 add_executable(main main.cpp)
 target_link_libraries(main dynamic)
 
-add_library(testdynamic SHARED src/test_object.cpp)
-target_link_libraries(testdynamic dynamic)
-
 install(TARGETS main RUNTIME DESTINATION bin)

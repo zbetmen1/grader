@@ -30,11 +30,15 @@
 #include <string>
 #include <vector>
 
-// Project headers
-#include "reflection_types.hpp"
-
 namespace dynamic
 {
+  // Typedefs
+  class object;
+  typedef void (*object_dtor)(void*);
+  typedef object* (*object_ctor)(...);
+  using safe_object = std::unique_ptr<object, object_dtor>;
+  using hash_constructors = std::unordered_map<std::string, std::string>;
+  
   /**
    * @brief This class represents base class for all objects that can be constructed dynamically 
    * from shared library without previous linking in compile time. 
@@ -42,13 +46,12 @@ namespace dynamic
    * It has following purposes:
    *   1) returning any derived class from shared library through pointer object*
    *   2) provides mechanism for safe destruction of derived objects
-   *   3) manages names of C functions, that are stored hash data structure, that are used to create classes
+   *   3) manages names of C functions stored in hash data structure, that are used to create classes
    *      that derive from 'object'.
    */
   class object
   { 
     static hash_constructors m_hashCtorName;
-    static hash_methods m_hashClassMethods;
     
     object_dtor m_deleter;
   protected:
@@ -59,11 +62,13 @@ namespace dynamic
     virtual std::string name() const { return "object"; }
     
     static std::string constructor(const std::string& className);
-    static std::string get_c_wrapper_name(const std::string& className, const std::string& cppFunctionName);
     
     friend class register_constructor;
-    friend class register_methods;
   };
 }
+
+#define QUOTE(name) #name
+#define DYNAMIC_OBJECT static const dynamic::register_constructor m_registerCtor;
+#define REGISTER_OBJECT(ClassName, CtorName) const dynamic::register_constructor ClassName::m_registerCtor{QUOTE(ClassName), QUOTE(CtorName)};
 
 #endif // OBJECT_H

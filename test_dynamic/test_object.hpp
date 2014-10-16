@@ -20,26 +20,27 @@
  *
  */
 
+#ifndef TEST_OBJECT_H
+#define TEST_OBJECT_H
+
 #include "object.hpp"
-#include <vector>
+#include "register_constructor.hpp"
+#include "register_methods.hpp"
 
-using namespace std;
+#include <memory>
 
-namespace dynamic 
-{ 
-  hash_constructors object::m_hashCtorName;
-  
-  object::object(object_dtor deleter)
-  : m_deleter{deleter}
-  {
-  }
-  
-  std::string object::constructor(const std::string& className)
-  {
-    return m_hashCtorName[className];
-  }
-  
-  // NOTE: This destructor MUST NOT be made inline cause of vtable lookup! It would break runtime destruction.
-  object::~object() {}
-  
-}
+class test_object: public dynamic::object
+{
+  DYNAMIC_OBJECT
+public:
+  test_object(dynamic::object_dtor deleter);
+  virtual std::string name() const { return "test_object"; }
+};
+
+extern "C" 
+void* create_test_object();
+
+extern "C"
+void destroy_test_object(void* deletedObject);
+
+#endif // TEST_OBJECT_H

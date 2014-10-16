@@ -33,11 +33,12 @@
 #include <functional>
 
 // Project headers
-#include "reflection_types.hpp"
 #include "object.hpp"
 
 namespace dynamic
 {
+  using library_path = std::string;
+  using shared_lib_impl = void*;
   
   /**
    * @brief Simple class that represents exception fired when loading of shared library fails.
@@ -86,7 +87,7 @@ namespace dynamic
      * @param p Path to shared library.
      * @param flag Mode in which to open shared library.
      */
-    shared_lib(const path& p, shared_lib_mode flag);
+    shared_lib(const library_path& p, shared_lib_mode flag);
     
     /**
      * @brief Unloads loaded shared library. 
@@ -119,17 +120,6 @@ namespace dynamic
     shared_lib& operator=(shared_lib&& moved);
   };
   
-  // Invoke function by name
-  template <typename RetVal, typename ...Args>
-  RetVal invoke_function(const shared_lib& lib, object* obj, const std::string& cppFunctionName, Args... args)
-  {
-    std::string cFunctionName = object::get_c_wrapper_name(obj->name(), cppFunctionName);
-    if (cFunctionName.empty())
-      return;
-    
-    object_method_ptr cFunction = reinterpret_cast<object_method_ptr>(lib.get_c_function(cFunctionName));
-    (*cFunction)(obj, args...);
-  }
 }
 
 #endif // SHARED_LIB_H

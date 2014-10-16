@@ -41,7 +41,7 @@ namespace dynamic
     }
   }
   
-  shared_lib::shared_lib(const path& p, shared_lib_mode flag)
+  shared_lib::shared_lib(const library_path& p, shared_lib_mode flag)
   { // TODO: Consider how to replace typedef to std::string with real path class. In this stage 
     // only libraries on absolute path or in environment path can be found...
     
@@ -72,7 +72,7 @@ namespace dynamic
       return safe_object{nullptr, nullptr};
     
     // Check that this class is located in this shared library (other possibility is that constructor is misspelled during registration)
-    object_ctor ctor = reinterpret_cast<object_ctor_ptr>(dlsym(m_impl, ctorName.c_str()));
+    object_ctor ctor = reinterpret_cast<object_ctor>(dlsym(m_impl, ctorName.c_str()));
     if (nullptr == ctor)
       return safe_object{nullptr, nullptr};
     
