@@ -68,7 +68,18 @@ namespace dynamic
 }
 
 #define QUOTE(name) #name
-#define DYNAMIC_OBJECT static const dynamic::register_constructor m_registerCtor;
-#define REGISTER_OBJECT(ClassName, CtorName) const dynamic::register_constructor ClassName::m_registerCtor{QUOTE(ClassName), QUOTE(CtorName)};
+#define REGISTER_DYNAMIC(ClassName) \
+  std::unique_ptr<dynamic::register_constructor> __dynamic_##ClassName{new dynamic::register_constructor{QUOTE(ClassName), "create_" QUOTE(ClassName)}}; \
+  extern "C" \
+  void destroy_##ClassName(void* obj) \
+  { \
+    ClassName* realObj = static_cast<ClassName*>(obj); \
+    delete realObj; \
+  } \
+  extern "C" \
+  void* create_##ClassName() \
+  { \
+    return static_cast<void*>(new ClassName{&destroy_##ClassName}); \
+  }
 
 #endif // OBJECT_H

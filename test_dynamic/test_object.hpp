@@ -25,22 +25,14 @@
 
 #include "object.hpp"
 #include "register_constructor.hpp"
-#include "register_methods.hpp"
-
-#include <memory>
 
 class test_object: public dynamic::object
 {
-  DYNAMIC_OBJECT
 public:
   test_object(dynamic::object_dtor deleter);
   virtual std::string name() const { return "test_object"; }
 };
 
-extern "C" 
-void* create_test_object();
-
-extern "C"
-void destroy_test_object(void* deletedObject);
+REGISTER_DYNAMIC(test_object)
 
 #endif // TEST_OBJECT_H

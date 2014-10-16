@@ -29,22 +29,6 @@
 using namespace dynamic;
 using namespace std;
 
-REGISTER_OBJECT(test_object, create_test_object)
-
 test_object::test_object(dynamic::object_dtor deleter)
 : object{deleter}
 {}
-
-void* create_test_object()
-{
-  test_object* obj = new test_object{&destroy_test_object};
-  cerr << "test_object created!" << endl;
-  return static_cast<void*>(obj);
-}
-
-void destroy_test_object(void* deletedObject)
-{
-  test_object* obj = static_cast<test_object*>(deletedObject);
-  delete obj;
-  cerr << "test_object deleted!" << endl;
-}

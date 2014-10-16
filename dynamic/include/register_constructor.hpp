@@ -28,14 +28,6 @@
 
 namespace dynamic
 { 
-  class class_already_exists: public std::runtime_error
-  {
-  public:
-    explicit class_already_exists(const char* arg)
-    : std::runtime_error{arg}
-    {}
-  };
-  
   /**
    * @brief This class provides functionality of static constructor and static destructor for classes
    * that derive from reflection::object.
