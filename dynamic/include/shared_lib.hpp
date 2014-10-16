@@ -46,13 +46,10 @@ namespace dynamic
    */
   class shared_lib_load_failed: public std::runtime_error
   {
-    std::string m_msg;
   public:
-    explicit shared_lib_load_failed(const std::string& arg)
-    : std::runtime_error{arg}, m_msg{arg}
+    explicit shared_lib_load_failed(const char* arg)
+    : std::runtime_error{arg}
     {}
-    
-    virtual const char* what() const noexcept { return m_msg.c_str(); }
   };
   
   // Forward declaration of object to minimize compilation dependencies
@@ -78,7 +75,7 @@ namespace dynamic
      * @param flag Enum to convert.
      * @return int
      */
-    static int convert(shared_lib_mode flag);
+    static int convert(shared_lib_mode flag) noexcept;
   public:
     
     /**

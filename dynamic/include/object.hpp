@@ -59,7 +59,7 @@ namespace dynamic
     virtual ~object() = 0;
   public:
     inline const object_dtor deleter() const { return static_cast<const object_dtor>(m_deleter); }
-    virtual std::string name() const { return "object"; }
+    virtual const char* name() const { return "object"; }
     
     static std::string constructor(const std::string& className);
     

@@ -24,12 +24,15 @@
 #include "object.hpp"
 
 #include <iostream>
+#include <cstdlib>
+#include <errno.h>
+#include <cstring>
 
 using namespace std;
 
 namespace dynamic 
 {
-  int shared_lib::convert(shared_lib_mode flag)
+  int shared_lib::convert(shared_lib_mode flag) noexcept
   {
     switch (flag) {
       case shared_lib_mode::LAZY:
@@ -42,16 +45,23 @@ namespace dynamic
   }
   
   shared_lib::shared_lib(const library_path& p, shared_lib_mode flag)
-  { // TODO: Consider how to replace typedef to std::string with real path class. In this stage 
-    // only libraries on absolute path or in environment path can be found...
-    
-    // Try to load shared library
-    m_impl = dlopen(p.c_str(), convert(flag));
-    if (nullptr == m_impl)
+  { 
+    // Resolve path, mode and try to open shared library
+    typedef void (*free_declaration_ptr)(void*);
+    unique_ptr<char, free_declaration_ptr> realPath{realpath(p.c_str(), 0), &::free};
+    if (!realPath)
     {
+      throw shared_lib_load_failed{strerror(errno)};
+    }
+    auto realFlag = convert(flag);
+    m_impl = dlopen(realPath.get(), realFlag);
+    
+    // Check that everything went well
+    if (nullptr == m_impl)
+    { 
       // Construct initial error string
       string msg{"Failed to load library on path '"};
-      msg += p;
+      msg += realPath.get();
       msg += "'!\n";
       
       // Append info from dlerror() if there's one

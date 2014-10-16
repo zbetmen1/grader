@@ -30,7 +30,7 @@ class test_object: public dynamic::object
 {
 public:
   test_object(dynamic::object_dtor deleter);
-  virtual std::string name() const { return "test_object"; }
+  virtual const char* name() const { return "test_object"; }
 };
 
 REGISTER_DYNAMIC(test_object)
