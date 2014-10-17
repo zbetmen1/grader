@@ -68,7 +68,7 @@ namespace dynamic
 }
 
 #define QUOTE(name) #name
-#define REGISTER_DYNAMIC(ClassName) \
+#define REGISTER_DYNAMIC_ST(ClassName) \
   std::unique_ptr<dynamic::register_constructor> __dynamic_##ClassName{new dynamic::register_constructor{QUOTE(ClassName), "create_" QUOTE(ClassName)}}; \
   extern "C" \
   void destroy_##ClassName(void* obj) \

@@ -41,12 +41,10 @@ namespace dynamic
       }
       else
       {
-        cerr << "Class with name '" << className << "' is already registered!" << '\n';
-        cerr << "Logging support should be added!" << endl;
+        // TODO: Log error!
       } 
     } catch(const std::exception& e) {
-      cerr << e.what() << endl;
-      cerr << "Logging support should be added!" << endl;
+      // TODO: Log error!
     }
   }
   
@@ -58,8 +56,7 @@ namespace dynamic
     } 
     catch (const exception& e) 
     {
-      cerr << e.what() << endl;
-      cerr << "Logging support should be added!" << endl;
+      // TODO: Log error!
     }
   }
 

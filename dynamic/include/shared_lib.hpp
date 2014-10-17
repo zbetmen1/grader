@@ -25,21 +25,14 @@
 
 // STL headers
 #include <string>
-#include <dlfcn.h>
 #include <stdexcept>
-#include <type_traits>
-#include <limits>
-#include <memory>
-#include <functional>
 
 // Project headers
 #include "object.hpp"
+#include "platform_specific.hpp"
 
 namespace dynamic
-{
-  using library_path = std::string;
-  using shared_lib_impl = void*;
-  
+{ 
   /**
    * @brief Simple class that represents exception fired when loading of shared library fails.
    * 
@@ -67,15 +60,8 @@ namespace dynamic
   
   class shared_lib
   {
-    shared_lib_impl m_impl;
+    platform::shared_lib_impl m_impl;
     
-    /**
-     * @brief Converts enum to int. One way to avoid this function is to use union of enum and int (that is not portable).
-     * 
-     * @param flag Enum to convert.
-     * @return int
-     */
-    static int convert(shared_lib_mode flag) noexcept;
   public:
     
     /**
@@ -84,7 +70,7 @@ namespace dynamic
      * @param p Path to shared library.
      * @param flag Mode in which to open shared library.
      */
-    shared_lib(const library_path& p, shared_lib_mode flag);
+    shared_lib(const std::string& p, shared_lib_mode flag);
     
     /**
      * @brief Unloads loaded shared library. 
@@ -106,7 +92,8 @@ namespace dynamic
      * @param functionName Name of function for which you need to fetch pointer.
      * @return void*
      */
-    void* get_c_function(const std::string& functionName) const;
+    platform::shared_lib_c_fun_ptr 
+    get_c_function(const std::string& functionName) const;
     
     // Shared library shouldn't be copied
     shared_lib(const shared_lib&) = delete;
