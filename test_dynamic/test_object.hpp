@@ -33,6 +33,6 @@ public:
   virtual const char* name() const { return "test_object"; }
 };
 
-REGISTER_DYNAMIC_ST(test_object)
+REGISTER_DYNAMIC_MT(test_object)
 
 #endif // TEST_OBJECT_H

@@ -28,6 +28,18 @@ using namespace std;
 namespace dynamic 
 { 
   hash_constructors object::m_hashCtorName;
+  mutex object::m_lockCtorHash;
+  
+  void object::set_constructor_st(const char* className, const char* ctorName)
+  {
+    m_hashCtorName[className] = ctorName;
+  }
+
+  void object::set_constructor_mt(const char* className, const char* ctorName)
+  {
+    lock_guard<mutex> lockHash{m_lockCtorHash};
+    m_hashCtorName[className] = ctorName;
+  }
   
   object::object(object_dtor deleter)
   : m_deleter{deleter}

@@ -29,6 +29,7 @@
 #include <memory>
 #include <string>
 #include <vector>
+#include <mutex>
 
 namespace dynamic
 {
@@ -51,9 +52,15 @@ namespace dynamic
    */
   class object
   { 
+    // Hash for constructors and mutex to protect it in case when libraries are loaded in different threads
+    static std::mutex m_lockCtorHash;
     static hash_constructors m_hashCtorName;
     
-    object_dtor m_deleter;
+    
+    static void set_constructor_st(const char* className, const char* ctorName);
+    static void set_constructor_mt(const char* className, const char* ctorName);
+    
+    object_dtor m_deleter;// TODO: Figure out should this be removed from class to separate hash?
   protected:
     object(object_dtor deleter);
     virtual ~object() = 0;
@@ -67,9 +74,11 @@ namespace dynamic
   };
 }
 
+// Some fancy macros for class registration
+
 #define QUOTE(name) #name
-#define REGISTER_DYNAMIC_ST(ClassName) \
-  std::unique_ptr<dynamic::register_constructor> __dynamic_##ClassName{new dynamic::register_constructor{QUOTE(ClassName), "create_" QUOTE(ClassName)}}; \
+
+#define C_CTOR_DTOR_BODIES(ClassName) \
   extern "C" \
   void destroy_##ClassName(void* obj) \
   { \
@@ -82,4 +91,12 @@ namespace dynamic
     return static_cast<void*>(new ClassName{&destroy_##ClassName}); \
   }
 
+#define REGISTER_DYNAMIC_ST(ClassName) \
+  std::unique_ptr<dynamic::register_constructor> __dynamic_##ClassName{new dynamic::register_constructor{QUOTE(ClassName), "create_" QUOTE(ClassName)}}; \
+  C_CTOR_DTOR_BODIES(ClassName)
+
+#define REGISTER_DYNAMIC_MT(ClassName) \
+  std::unique_ptr<dynamic::register_constructor> __dynamic_##ClassName{new dynamic::register_constructor{QUOTE(ClassName), "create_" QUOTE(ClassName), true}}; \
+  C_CTOR_DTOR_BODIES(ClassName)
+  
 #endif // OBJECT_H

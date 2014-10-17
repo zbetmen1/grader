@@ -30,14 +30,15 @@ using namespace std;
 
 namespace dynamic  
 {
-  register_constructor::register_constructor(const char* className, const char* ctorName) noexcept
+  register_constructor::register_constructor(const char* className, const char* ctorName, const bool multithreaded) noexcept
   : m_className{className}
   {
     try
     {
       if (object::m_hashCtorName.cend() == object::m_hashCtorName.find(className))
       {
-        object::m_hashCtorName[className] = ctorName;
+        if (multithreaded) object::set_constructor_mt(className, ctorName);
+        else object::set_constructor_st(className, ctorName);
       }
       else
       {

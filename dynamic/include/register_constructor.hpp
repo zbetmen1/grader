@@ -37,7 +37,7 @@ namespace dynamic
   {
     std::string m_className;
   public:
-    explicit register_constructor(const char* className, const char* ctorName) noexcept;
+    explicit register_constructor(const char* className, const char* ctorName, const bool multithreaded = false) noexcept;
     ~register_constructor() noexcept;
     
     // This class is not copyable, nor movable
