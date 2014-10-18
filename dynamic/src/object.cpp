@@ -27,31 +27,44 @@ using namespace std;
 
 namespace dynamic 
 { 
-  hash_constructors object::m_hashCtorName;
-  mutex object::m_lockCtorHash;
+  hash_creators object::m_hashCreatorsName;
+  mutex object::m_lockHashes;
   
-  void object::set_constructor_st(const char* className, const char* ctorName)
+  void object::insert_creators_st(const char* className, object_ctor ctorName, object_dtor dtorName)
   {
-    m_hashCtorName[className] = ctorName;
+    m_hashCreatorsName[className] = make_pair(ctorName, dtorName);
   }
 
-  void object::set_constructor_mt(const char* className, const char* ctorName)
+  void object::insert_creators_mt(const char* className, object_ctor ctorName, object_dtor dtorName)
   {
-    lock_guard<mutex> lockHash{m_lockCtorHash};
-    m_hashCtorName[className] = ctorName;
+    lock_guard<mutex> lockHash{m_lockHashes};
+    insert_creators_st(className, ctorName, dtorName);
   }
   
-  object::object(object_dtor deleter)
-  : m_deleter{deleter}
+  void object::erase_creators_st(const char* className)
   {
+    m_hashCreatorsName.erase(className);
+  }
+
+  void object::erase_creators_mt(const char* className)
+  {
+    lock_guard<mutex> lockHash{m_lockHashes};
+    erase_creators_st(className);
   }
   
-  std::string object::constructor(const std::string& className)
+  object_dtor object::destructor(const string& className)
   {
-    return m_hashCtorName[className];
+    return m_hashCreatorsName[className].second;
   }
   
-  // NOTE: This destructor MUST NOT be made inline cause of vtable lookup! It would break runtime destruction.
+  object_ctor object::constructor(const std::string& className)
+  {
+    return m_hashCreatorsName[className].first;
+  }
+  
+  object::object()
+  { }
+  
   object::~object() {}
   
 }

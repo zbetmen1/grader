@@ -63,19 +63,14 @@ namespace dynamic
 
   safe_object shared_lib::make_object(const string& className) const
   {
-    // Get constructor name for class name and check that the name is registered
-    auto ctorName = object::constructor(className);
-    if (ctorName.empty())
-      return safe_object{nullptr, nullptr};
-    
-    // Check that this class is located in this shared library (other possibility is that constructor is misspelled during registration)
-    object_ctor ctor = reinterpret_cast<object_ctor>(platform::fetch_sym_from_shared_lib(m_impl, ctorName.c_str()));
-    if (nullptr == ctor)
+    // Get constructor pointer class name and check that the name is registered
+    auto ctor = object::constructor(className);
+    if (!ctor)
       return safe_object{nullptr, nullptr};
     
     // Create new object
-    object* obj = ctor();
-    return safe_object{obj, obj->deleter()};
+    object* obj = static_cast<object*>((*ctor)());
+    return safe_object{obj, object::destructor(className)};
   }
 
   platform::shared_lib_c_fun_ptr 
@@ -88,7 +83,7 @@ namespace dynamic
   {
     // Do nothing if library wasn't loaded, otherwise unload library
     if (nullptr != m_impl)
-      platform::close_shared_lib(m_impl); // TODO: Figure out how to handle failure of dlclose?
+      platform::close_shared_lib(m_impl); // TODO: Figure out how to handle failure of close_shared_lib?
   }
 
   shared_lib::shared_lib(shared_lib&& moved)

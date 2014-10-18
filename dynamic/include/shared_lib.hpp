@@ -33,10 +33,7 @@
 
 namespace dynamic
 { 
-  /**
-   * @brief Simple class that represents exception fired when loading of shared library fails.
-   * 
-   */
+  
   class shared_lib_load_failed: public std::runtime_error
   {
   public:
@@ -48,10 +45,6 @@ namespace dynamic
   // Forward declaration of object to minimize compilation dependencies
   class object;
   
-  /**
-   * @brief This is simple strongly typed enum used to specify in which way shared library should be loaded.
-   * 
-   */
   enum class shared_lib_mode: int
   {
     LAZY = RTLD_LAZY,
@@ -62,36 +55,11 @@ namespace dynamic
   {
     platform::shared_lib_impl m_impl;
     
-  public:
-    
-    /**
-     * @brief Constructs shared_lib object from shared library on given path.
-     * 
-     * @param p Path to shared library.
-     * @param flag Mode in which to open shared library.
-     */
+  public:  
     shared_lib(const std::string& p, shared_lib_mode flag);
-    
-    /**
-     * @brief Unloads loaded shared library. 
-     * 
-     */
     ~shared_lib();
     
-    /**
-     * @brief Returns object dynamically created from this shared library.
-     * 
-     * @param className Name of class to be created.
-     * @return reflection::object*
-     */
     safe_object make_object(const std::string& className) const;
-
-    /**
-     * @brief Gets pointer to function, with C linkage, stored in this shared library by name.
-     * 
-     * @param functionName Name of function for which you need to fetch pointer.
-     * @return void*
-     */
     platform::shared_lib_c_fun_ptr 
     get_c_function(const std::string& functionName) const;
     

@@ -4,6 +4,7 @@
 
 #include "shared_lib.hpp"
 #include "object.hpp"
+#include "any.hpp"
 
 using namespace std;
 using namespace dynamic;
@@ -20,6 +21,8 @@ int main(int , char **)
   {
     cerr << e.what() << endl;
   }
-  
+  cout << sizeof(object) << endl;
+  any storeUniquePtr = new int{17};
+  cout << (any_cast<int>(storeUniquePtr)) << endl;
   return 0;
 }

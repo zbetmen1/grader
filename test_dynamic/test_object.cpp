@@ -29,6 +29,6 @@
 using namespace dynamic;
 using namespace std;
 
-test_object::test_object(dynamic::object_dtor deleter)
-: object{deleter}
+test_object::test_object()
+: object{}
 {}

@@ -24,12 +24,12 @@
 #define TEST_OBJECT_H
 
 #include "object.hpp"
-#include "register_constructor.hpp"
+#include "register_creators.hpp"
 
 class test_object: public dynamic::object
 {
 public:
-  test_object(dynamic::object_dtor deleter);
+  test_object();
   virtual const char* name() const { return "test_object"; }
 };
 

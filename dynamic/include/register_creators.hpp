@@ -20,45 +20,38 @@
  *
  */
 
-#include "register_constructor.hpp"
+#ifndef REGISTER_YOURSELF_H
+#define REGISTER_YOURSELF_H
+
+// STL headers
+#include <stdexcept>
+#include <string>
+
+// Project headers
 #include "object.hpp"
 
-#include <string>
-#include <iostream>
-
-using namespace std;
-
-namespace dynamic  
-{
-  register_constructor::register_constructor(const char* className, const char* ctorName, const bool multithreaded) noexcept
-  : m_className{className}
+namespace dynamic
+{ 
+  /**
+   * @brief This class provides functionality of static constructor and static destructor for classes
+   * that derive from reflection::object.
+   * 
+   */
+  class register_creators
   {
-    try
-    {
-      if (object::m_hashCtorName.cend() == object::m_hashCtorName.find(className))
-      {
-        if (multithreaded) object::set_constructor_mt(className, ctorName);
-        else object::set_constructor_st(className, ctorName);
-      }
-      else
-      {
-        // TODO: Log error!
-      } 
-    } catch(const std::exception& e) {
-      // TODO: Log error!
-    }
-  }
-  
-  register_constructor::~register_constructor() noexcept
-  {
-    try 
-    {
-      object::m_hashCtorName.erase(m_className);
-    } 
-    catch (const exception& e) 
-    {
-      // TODO: Log error!
-    }
-  }
-
+    std::string m_className;
+    bool m_multithreaded;
+  public:
+    explicit register_creators(const char* className, object_ctor ctorName, object_dtor dtorName, 
+                                  const bool multithreaded = false) noexcept;
+    ~register_creators() noexcept;
+    
+    // This class is not copyable, nor movable
+    register_creators(const register_creators&) = delete;
+    register_creators& operator=(const register_creators&) = delete;
+    register_creators(register_creators&&) = delete;
+    register_creators& operator=(register_creators&&) = delete;
+  };
 }
+
+#endif // REGISTER_YOURSELF_H

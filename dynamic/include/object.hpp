@@ -36,41 +36,34 @@ namespace dynamic
   // Typedefs
   class object;
   typedef void (*object_dtor)(void*);
-  typedef object* (*object_ctor)(...);
+  typedef void* (*object_ctor)();
   using safe_object = std::unique_ptr<object, object_dtor>;
-  using hash_constructors = std::unordered_map<std::string, std::string>;
+  using hash_creators = std::unordered_map<std::string, std::pair<object_ctor, object_dtor>>;
   
-  /**
-   * @brief This class represents base class for all objects that can be constructed dynamically 
-   * from shared library without previous linking in compile time. 
-   * @details This class is made pure virtual as nobody should create instance of this particular class. 
-   * It has following purposes:
-   *   1) returning any derived class from shared library through pointer object*
-   *   2) provides mechanism for safe destruction of derived objects
-   *   3) manages names of C functions stored in hash data structure, that are used to create classes
-   *      that derive from 'object'.
-   */
   class object
   { 
     // Hash for constructors and mutex to protect it in case when libraries are loaded in different threads
-    static std::mutex m_lockCtorHash;
-    static hash_constructors m_hashCtorName;
+    static std::mutex m_lockHashes;
+    static hash_creators m_hashCreatorsName;
     
+    // Functions that register and unregister class creators in single thread loading scenario (_st) 
+    // and multi-threaded scenario (_mt), this extensions semantic applies to REGISTER_DYNAMIC* macros
+    static void insert_creators_st(const char* className, object_ctor ctorName, object_dtor dtorName);
+    static void insert_creators_mt(const char* className, object_ctor ctorName, object_dtor dtorName);
+    static void erase_creators_st(const char* className);
+    static void erase_creators_mt(const char* className);
     
-    static void set_constructor_st(const char* className, const char* ctorName);
-    static void set_constructor_mt(const char* className, const char* ctorName);
-    
-    object_dtor m_deleter;// TODO: Figure out should this be removed from class to separate hash?
+    // Functions that return pointers to class creators
+    static object_ctor constructor(const std::string& className);
+    static object_dtor destructor(const std::string& className);
   protected:
-    object(object_dtor deleter);
+    explicit object();
     virtual ~object() = 0;
   public:
-    inline const object_dtor deleter() const { return static_cast<const object_dtor>(m_deleter); }
     virtual const char* name() const { return "object"; }
     
-    static std::string constructor(const std::string& className);
-    
-    friend class register_constructor;
+    friend class register_creators;
+    friend class shared_lib;
   };
 }
 
@@ -88,15 +81,20 @@ namespace dynamic
   extern "C" \
   void* create_##ClassName() \
   { \
-    return static_cast<void*>(new ClassName{&destroy_##ClassName}); \
+    return static_cast<void*>(new ClassName{}); \
   }
 
 #define REGISTER_DYNAMIC_ST(ClassName) \
-  std::unique_ptr<dynamic::register_constructor> __dynamic_##ClassName{new dynamic::register_constructor{QUOTE(ClassName), "create_" QUOTE(ClassName)}}; \
-  C_CTOR_DTOR_BODIES(ClassName)
+  C_CTOR_DTOR_BODIES(ClassName) \
+  std::unique_ptr<dynamic::register_creators> __dynamic_##ClassName{new dynamic::register_creators{QUOTE(ClassName), \
+                                                                                                         &create_##ClassName, \
+                                                                                                         &destroy_##ClassName}};
 
 #define REGISTER_DYNAMIC_MT(ClassName) \
-  std::unique_ptr<dynamic::register_constructor> __dynamic_##ClassName{new dynamic::register_constructor{QUOTE(ClassName), "create_" QUOTE(ClassName), true}}; \
-  C_CTOR_DTOR_BODIES(ClassName)
+  C_CTOR_DTOR_BODIES(ClassName) \
+  std::unique_ptr<dynamic::register_creators> __dynamic_##ClassName{new dynamic::register_creators{QUOTE(ClassName), \
+                                                                                                         &create_##ClassName, \
+                                                                                                         &destroy_##ClassName, \
+                                                                                                         true }};
   
 #endif // OBJECT_H
