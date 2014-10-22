@@ -30,15 +30,19 @@ namespace dynamic
   hash_creators object::m_hashCreatorsName;
   mutex object::m_lockHashes;
   
-  void object::insert_creators_st(const char* className, object_ctor ctorName, object_dtor dtorName)
+  bool object::insert_creators_st(const char* className, dynamic::object_ctor ctorName, dynamic::object_dtor dtorName)
   {
+    if (m_hashCreatorsName.cend() != m_hashCreatorsName.find(className))
+      return false;
+    
     m_hashCreatorsName[className] = make_pair(ctorName, dtorName);
+    return true;
   }
 
-  void object::insert_creators_mt(const char* className, object_ctor ctorName, object_dtor dtorName)
+  bool object::insert_creators_mt(const char* className, dynamic::object_ctor ctorName, dynamic::object_dtor dtorName)
   {
     lock_guard<mutex> lockHash{m_lockHashes};
-    insert_creators_st(className, ctorName, dtorName);
+    return insert_creators_st(className, ctorName, dtorName);
   }
   
   void object::erase_creators_st(const char* className)

@@ -20,38 +20,33 @@
  *
  */
 
-#ifndef REGISTER_CREATORS_H
-#define REGISTER_CREATORS_H
+#ifndef REGISTER_METHODS_H
+#define REGISTER_METHODS_H
 
 // STL headers
-#include <stdexcept>
+#include <vector>
+#include <map>
 #include <string>
 
-// Project headers
-#include "object.hpp"
-
 namespace dynamic
-{ 
-  /**
-   * @brief This class provides functionality of static constructor and static destructor for classes
-   * that derive from reflection::object.
-   * 
-   */
-  class register_creators
+{
+  using methods_container = std::vector<std::pair<const char*, const char*>>;
+  
+  class register_methods
   {
     std::string m_className;
     bool m_multithreaded;
   public:
-    explicit register_creators(const char* className, object_ctor ctorName, object_dtor dtorName, 
-                                  const bool multithreaded = false) noexcept;
-    ~register_creators() noexcept;
+    explicit register_methods(const char* className, const methods_container& methods, 
+                              const bool multithreaded = false) noexcept;
+    ~register_methods() noexcept;
     
-    // This class is not copyable, nor movable
-    register_creators(const register_creators&) = delete;
-    register_creators& operator=(const register_creators&) = delete;
-    register_creators(register_creators&&) = delete;
-    register_creators& operator=(register_creators&&) = delete;
+    // Not copyable and not movable
+    register_methods(const register_methods&) = delete;
+    register_methods& operator=(const register_methods&) = delete;
+    register_methods(register_methods&&) = delete;
+    register_methods& operator=(register_methods&&) = delete;
   };
 }
 
-#endif // REGISTER_CREATORS_H
+#endif // REGISTER_METHODS_H

@@ -20,38 +20,30 @@
  *
  */
 
-#ifndef REGISTER_CREATORS_H
-#define REGISTER_CREATORS_H
+#ifndef TEST_METHODS_SUPPORT_H
+#define TEST_METHODS_SUPPORT_H
 
 // STL headers
-#include <stdexcept>
-#include <string>
+#include <vector>
+#include <functional>
 
 // Project headers
-#include "object.hpp"
+#include "methods_support.hpp"
+#include "any.hpp"
+#include "register_creators.hpp"
+#include "register_methods.hpp"
 
-namespace dynamic
-{ 
-  /**
-   * @brief This class provides functionality of static constructor and static destructor for classes
-   * that derive from reflection::object.
-   * 
-   */
-  class register_creators
-  {
-    std::string m_className;
-    bool m_multithreaded;
-  public:
-    explicit register_creators(const char* className, object_ctor ctorName, object_dtor dtorName, 
-                                  const bool multithreaded = false) noexcept;
-    ~register_creators() noexcept;
-    
-    // This class is not copyable, nor movable
-    register_creators(const register_creators&) = delete;
-    register_creators& operator=(const register_creators&) = delete;
-    register_creators(register_creators&&) = delete;
-    register_creators& operator=(register_creators&&) = delete;
-  };
-}
+class test_methods_support: public dynamic::methods_support
+{
+public:
+    explicit test_methods_support();
+    virtual const char* name() const;
+    std::string int_to_str(int x) const;
+    int min_v_int(std::reference_wrapper<std::vector<int>> v) const;
+};
 
-#endif // REGISTER_CREATORS_H
+REGISTER_DYNAMIC_METHODS_ST(test_methods_support, int_to_str, min_v_int)
+WRAP_DYNAMIC_METHOD(test_methods_support, int_to_str, int)
+WRAP_DYNAMIC_METHOD(test_methods_support, min_v_int, std::reference_wrapper<std::vector<int>>)
+
+#endif // TEST_METHODS_SUPPORT_H

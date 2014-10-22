@@ -31,6 +31,9 @@
 #include <vector>
 #include <mutex>
 
+// Project headers
+#include "dynamic_macros.hpp"
+
 namespace dynamic
 {
   // Typedefs
@@ -48,8 +51,8 @@ namespace dynamic
     
     // Functions that register and unregister class creators in single thread loading scenario (_st) 
     // and multi-threaded scenario (_mt), this extensions semantic applies to REGISTER_DYNAMIC* macros
-    static void insert_creators_st(const char* className, object_ctor ctorName, object_dtor dtorName);
-    static void insert_creators_mt(const char* className, object_ctor ctorName, object_dtor dtorName);
+    static bool insert_creators_st(const char* className, object_ctor ctorName, object_dtor dtorName);
+    static bool insert_creators_mt(const char* className, object_ctor ctorName, object_dtor dtorName);
     static void erase_creators_st(const char* className);
     static void erase_creators_mt(const char* className);
     
@@ -66,35 +69,5 @@ namespace dynamic
     friend class shared_lib;
   };
 }
-
-// Some fancy macros for class registration
-
-#define QUOTE(name) #name
-
-#define C_CTOR_DTOR_BODIES(ClassName) \
-  extern "C" \
-  void destroy_##ClassName(void* obj) \
-  { \
-    ClassName* realObj = static_cast<ClassName*>(obj); \
-    delete realObj; \
-  } \
-  extern "C" \
-  void* create_##ClassName() \
-  { \
-    return static_cast<void*>(new ClassName{}); \
-  }
-
-#define REGISTER_DYNAMIC_ST(ClassName) \
-  C_CTOR_DTOR_BODIES(ClassName) \
-  std::unique_ptr<dynamic::register_creators> __dynamic_##ClassName{new dynamic::register_creators{QUOTE(ClassName), \
-                                                                                                         &create_##ClassName, \
-                                                                                                         &destroy_##ClassName}};
-
-#define REGISTER_DYNAMIC_MT(ClassName) \
-  C_CTOR_DTOR_BODIES(ClassName) \
-  std::unique_ptr<dynamic::register_creators> __dynamic_##ClassName{new dynamic::register_creators{QUOTE(ClassName), \
-                                                                                                         &create_##ClassName, \
-                                                                                                         &destroy_##ClassName, \
-                                                                                                         true }};
   
 #endif // OBJECT_H

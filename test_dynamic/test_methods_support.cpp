@@ -20,38 +20,32 @@
  *
  */
 
-#ifndef REGISTER_CREATORS_H
-#define REGISTER_CREATORS_H
-
 // STL headers
-#include <stdexcept>
-#include <string>
+#include <algorithm>
 
 // Project headers
-#include "object.hpp"
+#include "test_methods_support.hpp"
 
-namespace dynamic
-{ 
-  /**
-   * @brief This class provides functionality of static constructor and static destructor for classes
-   * that derive from reflection::object.
-   * 
-   */
-  class register_creators
-  {
-    std::string m_className;
-    bool m_multithreaded;
-  public:
-    explicit register_creators(const char* className, object_ctor ctorName, object_dtor dtorName, 
-                                  const bool multithreaded = false) noexcept;
-    ~register_creators() noexcept;
-    
-    // This class is not copyable, nor movable
-    register_creators(const register_creators&) = delete;
-    register_creators& operator=(const register_creators&) = delete;
-    register_creators(register_creators&&) = delete;
-    register_creators& operator=(register_creators&&) = delete;
-  };
+test_methods_support::test_methods_support()
+: methods_support{}
+{
 }
 
-#endif // REGISTER_CREATORS_H
+const char* test_methods_support::name() const
+{
+    return "test_methods_support";
+}
+
+std::string test_methods_support::int_to_str(int x) const
+{
+  return std::to_string(x);
+}
+
+int test_methods_support::min_v_int(std::reference_wrapper< std::vector< int > > v) const
+{
+  std::sort(v.get().begin(), v.get().end());
+  return v.get()[0];
+}
+
+
+

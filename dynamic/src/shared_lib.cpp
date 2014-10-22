@@ -61,18 +61,6 @@ namespace dynamic
     }
   }
 
-  safe_object shared_lib::make_object(const string& className) const
-  {
-    // Get constructor pointer class name and check that the name is registered
-    auto ctor = object::constructor(className);
-    if (!ctor)
-      return safe_object{nullptr, nullptr};
-    
-    // Create new object
-    object* obj = static_cast<object*>((*ctor)());
-    return safe_object{obj, object::destructor(className)};
-  }
-
   platform::shared_lib_c_fun_ptr 
   shared_lib::get_c_function(const string& functionName) const
   {
