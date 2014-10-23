@@ -26,11 +26,13 @@
 // STL headers
 #include <string>
 #include <stdexcept>
+#include <type_traits>
 
 // Project headers
 #include "object.hpp"
 #include "methods_support.hpp"
 #include "platform_specific.hpp"
+#include "expected.hpp"
 
 namespace dynamic
 { 
@@ -86,27 +88,37 @@ namespace dynamic
   };
   
   template <typename RetVal, typename ...Args>
-  RetVal invoke_method(const shared_lib& lib, safe_methods_support& mobj, const char* cppName, Args... args) 
+  expected<typename std::enable_if<!std::is_same<RetVal, void>::value, RetVal>::type>
+  invoke_method(const shared_lib& lib, safe_methods_support& mobj, const char* cppName, Args... args) 
   {
     // Get C wrapper function pointer
     auto cName = methods_support::get_method_st(mobj->name(), cppName);
-    if (cName.empty()) throw std::runtime_error("Method not found!");
+    if (cName.empty()) return std::runtime_error("Method not found!");
     supported_method cWrapper = reinterpret_cast<supported_method>(lib.get_c_function(cName));
-    if (!cWrapper) throw std::runtime_error("C wrapper not found!");
+    if (!cWrapper) return std::runtime_error("C wrapper not found!");
     
     // Set arguments and call C wrapper
     mobj->arguments(args...);
     (*cWrapper)(static_cast<void*>(mobj.get()));
-    
+
     // Extract result
-    try 
-    {
-      return any_cast<RetVal>(mobj->result());
-    } 
-    catch (const std::bad_cast&) 
-    {
-      throw std::runtime_error(any_cast<const char*>(mobj->result()));
-    }
+    return any_cast<RetVal>(mobj->result());
+  }
+  
+  template <typename RetVal, typename ...Args>
+  expected<typename std::enable_if<std::is_same<RetVal, void>::value, RetVal>::type>
+  invoke_method(const shared_lib& lib, safe_methods_support& mobj, const char* cppName, Args... args) 
+  {
+    // Get C wrapper function pointer
+    auto cName = methods_support::get_method_st(mobj->name(), cppName);
+    if (cName.empty()) return std::runtime_error("Method not found!");
+    supported_method cWrapper = reinterpret_cast<supported_method>(lib.get_c_function(cName));
+    if (!cWrapper) return std::runtime_error("C wrapper not found!");
+    
+    // Set arguments and call C wrapper
+    mobj->arguments(args...);
+    (*cWrapper)(static_cast<void*>(mobj.get()));
+    return expected<void>{};
   }
 }
 

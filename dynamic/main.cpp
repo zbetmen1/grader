@@ -23,9 +23,9 @@ int main(int , char **)
     // Sort vector using non-virtual member function from runtime-loaded shared library class
     // Also return minimum (test return values)
     vector<int> v = { 1, 17, 0, -1, 5, 64};
-    auto res = invoke_method<int>(testLib, uniqueTestObject, "min_v_int", std::ref(v)); // References must be wrapped!
+    auto res = invoke_method<void>(testLib, uniqueTestObject, "sort_int_v", std::ref(v)); // References must be wrapped!
     copy(v.cbegin(), v.cend(), ostream_iterator<int>(cout, " "));
-    cout << endl << "Minimum is: " << res << endl;
+    cout << endl << boolalpha << res.is_valid() << endl;
   } 
   catch (const shared_lib_load_failed& e) 
   {

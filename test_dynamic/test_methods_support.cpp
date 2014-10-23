@@ -22,6 +22,7 @@
 
 // STL headers
 #include <algorithm>
+#include <iostream>
 
 // Project headers
 #include "test_methods_support.hpp"
@@ -41,11 +42,16 @@ std::string test_methods_support::int_to_str(int x) const
   return std::to_string(x);
 }
 
-int test_methods_support::min_v_int(std::reference_wrapper< std::vector< int > > v) const
+void test_methods_support::sort_int_v(std::reference_wrapper< std::vector< int > > v) const
 {
   std::sort(v.get().begin(), v.get().end());
-  return v.get()[0];
 }
+
+void test_methods_support::print(int) const
+{
+  std::cout << "Hello from print method!" << std::endl;
+}
+
 
 
 

@@ -88,5 +88,4 @@ namespace dynamic
     moved.m_impl = nullptr;
     return *this;
   }
-
 }

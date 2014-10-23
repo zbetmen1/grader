@@ -83,7 +83,7 @@
 #define GEN_ARGS_10(x1, x2, x3, x4, x5, x6, x7, x8, x9, x10) any_cast<x1>(METHODS_SUPPORT_OBJ->get_arguments()[0]), any_cast<x2>(METHODS_SUPPORT_OBJ->get_arguments()[1]), any_cast<x3>(METHODS_SUPPORT_OBJ->get_arguments()[2]), any_cast<x4>(METHODS_SUPPORT_OBJ->get_arguments()[3]), any_cast<x5>(METHODS_SUPPORT_OBJ->get_arguments()[4]), any_cast<x6>(METHODS_SUPPORT_OBJ->get_arguments()[5]), any_cast<x7>(METHODS_SUPPORT_OBJ->get_arguments()[6]), any_cast<x8>(METHODS_SUPPORT_OBJ->get_arguments()[7]), any_cast<x9>(METHODS_SUPPORT_OBJ->get_arguments()[8]), any_cast<x10>(METHODS_SUPPORT_OBJ->get_arguments()[9])
 
 // Macro that wraps method call with C function (no exception can go through)
-#define WRAP_DYNAMIC_METHOD(ClassName, MethodName, ...) \
+#define WRAP_DYNAMIC_METHOD_RET(ClassName, MethodName, ...) \
   extern "C" \
   void GEN_WRAPPER_NAME(ClassName, MethodName)(void* obj) \
   { \
@@ -92,17 +92,32 @@
     try \
     { \
       METHODS_SUPPORT_OBJ->result() = METHODS_SUPPORT_OBJ->MethodName(GEN_ARGS(__VA_ARGS__)); \
-    } catch (const std::bad_cast&) \
-    { \
-      METHODS_SUPPORT_OBJ->result() = std::string("Bad parameter types given to function '" #MethodName "'!"); \
     } catch(const std::exception& e) \
     { \
-      METHODS_SUPPORT_OBJ->result() = std::string(e.what()); \
+      METHODS_SUPPORT_OBJ->result() = dynamic::expected<void>{e}; \
     } catch(...) \
     { \
-      METHODS_SUPPORT_OBJ->result() = std::string("Unknown error!"); \
+      METHODS_SUPPORT_OBJ->result() = dynamic::expected<void>{std::runtime_error{"Unknown error!"}}; \
     } \
   }
+  
+#define WRAP_DYNAMIC_METHOD_VOID(ClassName, MethodName, ...) \
+extern "C" \
+void GEN_WRAPPER_NAME(ClassName, MethodName)(void* obj) \
+{ \
+  using namespace dynamic; \
+  ClassName* METHODS_SUPPORT_OBJ = static_cast<ClassName*>(obj); \
+  try \
+  { \
+    METHODS_SUPPORT_OBJ->MethodName(GEN_ARGS(__VA_ARGS__)); \
+  } catch(const std::exception& e) \
+  { \
+    METHODS_SUPPORT_OBJ->result() = dynamic::expected<void>{e}; \
+  } catch(...) \
+  { \
+    METHODS_SUPPORT_OBJ->result() = dynamic::expected<void>{std::runtime_error{"Unknown error!"}}; \
+  } \
+}
 
 // Apply bind will apply macro to all of it's arguments with first arguments binded as a first macro argument
 #define APPLY_BIND(macro, binded, ...) CAT(APPLY_BIND_, NARGS(__VA_ARGS__))(macro, binded, __VA_ARGS__)

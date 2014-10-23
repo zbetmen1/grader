@@ -32,6 +32,7 @@
 #include "any.hpp"
 #include "register_creators.hpp"
 #include "register_methods.hpp"
+#include "expected.hpp"
 
 class test_methods_support: public dynamic::methods_support
 {
@@ -39,11 +40,13 @@ public:
     explicit test_methods_support();
     virtual const char* name() const;
     std::string int_to_str(int x) const;
-    int min_v_int(std::reference_wrapper<std::vector<int>> v) const;
+    void sort_int_v(std::reference_wrapper< std::vector< int > > v) const;
+    void print(int) const;
 };
 
-REGISTER_DYNAMIC_METHODS_ST(test_methods_support, int_to_str, min_v_int)
-WRAP_DYNAMIC_METHOD(test_methods_support, int_to_str, int)
-WRAP_DYNAMIC_METHOD(test_methods_support, min_v_int, std::reference_wrapper<std::vector<int>>)
+REGISTER_DYNAMIC_METHODS_ST(test_methods_support, int_to_str, sort_int_v, print)
+WRAP_DYNAMIC_METHOD_RET(test_methods_support, int_to_str, int)
+WRAP_DYNAMIC_METHOD_VOID(test_methods_support, sort_int_v, std::reference_wrapper<std::vector<int>>)
+WRAP_DYNAMIC_METHOD_VOID(test_methods_support, print, int) // TODO: Deal with methods without arguments!!!
 
 #endif // TEST_METHODS_SUPPORT_H
