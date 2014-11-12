@@ -1,0 +1,41 @@
+<?xml version="1.0"?>
+<!--
+  First we have test element which is the main element to be sent.
+  Test has 2 elements inside 'input' and 'output', these will appear in 
+  'test' alternately ('output' folows 'input' that should be matched).
+  
+  Input and output elements contain data in their bodies. They can have 2 types 
+  of attributes: 'type' and 'path'. First denotes how to pipe bodies of 
+  elements and there are 3 possible values:
+    1) "std" means input will be piped through stdin and output through stdout
+    2) "cmd" means input will be piped as command line arguments. Note that
+      specifying "cmd" in output tag will result in denied HTTP request, as that
+      is not an valid option.
+    3) "file" means input should be written to file and it is on students code
+      to find where input resides. Path to file will be piped to students app
+      as a command line argument. If "file" is set for output grader will look
+      at given path for that file, read it and compare to expected output given
+      in 'output' body.
+  Second attribute should be present if and only if type="file". Its value is file
+  relative location to execution dir (which is implementation specific). Order of
+  attributes is 'type' and then 'path' (if needed) and MUST be followed strictly!
+  
+  If this explained format is broken request will result in HTTP error that will not 
+  be descriptive as HTTP codes are very limited.
+-->
+<test><!-- EXAMPLE: Numbers are given as cmd line arguments 
+       calculate it's sum and write it to stdout. -->
+  
+  <input type="cmd">
+    1 2 3 4 5 6 7 8 9 10
+  </input>
+  <output type="std">
+    55
+  </output>
+  
+  <input type="cmd"></input>
+  <output type="std">0</output>
+  
+  <input type="cmd">-1 1 -2 3 -4 3</input>
+  <output type="std">0</output>
+</test>

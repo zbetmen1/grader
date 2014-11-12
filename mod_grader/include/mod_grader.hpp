@@ -70,49 +70,4 @@ module AP_MODULE_DECLARE_DATA grader_module =
   register_hooks
 };
 
-/***************************
- * C++ DEFINITIONS SECTION *
- ***************************/
-
-namespace grader
-{
-  struct limits
-  {
-    using size_type = std::size_t;
-    
-    static constexpr size_type MAX_BODY_LENGTH = (1U << 20) * 20; // 20MB
-  };
-  
- /**
-  * @brief Reads whole body of request but not header.
-  * @details Body content is put to rbuf and number of bytes in body is kept in size.
-  * Function returns HTTP codes to indicate success and failure.
-  * 
-  * @param r Current request.
-  * @param rbuf Body buffer.
-  * @param size Number of bytes that body has.
-  * @return int
-  */
-  int read_body(request_rec *r, const char **rbuf, apr_off_t *size);
-
- /**
-  * @brief Gets boundary for POST request with multipart/form-data encoding.
-  * @details This function works correct but expects request header to have specific format.
-  * It expects line like: "Content-Type: multipart/form-data; boundary=---------------------------33865453060129036431648023".
-  * What is important here is:
-  *   1) case doesn't matter (upper or lower or mixed)
-  *   2) Content-Type line must exist in header
-  *   3) function doesn't care what's between 'Content-Type' and 'boundary'
-  *   4) boundary must come last, for this example: 
-  *      "Content-Type: boundary=---------------------------33865453060129036431648023; multipart/form-data"
-  *      function will not work as expected.
-  * Note that 4th requirement is fulfilled at the time code was written but is given here so errors could
-  * be fixed easy if format ever changes.
-  * 
-  * @param r Current request.
-  * @return char* Boundary that can be used to split request body.
-  */
-  char* boundary(request_rec* r);
-}
-
 #endif // MOD_GRADER_H
