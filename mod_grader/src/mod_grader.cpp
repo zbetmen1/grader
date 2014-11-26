@@ -39,9 +39,9 @@ EXTERN_C int grader_handler(request_rec* r)
     request_parser parser(r);
     request_parser::parsed_data data;
     parser.parse(data);
-    string fileContent(get<request_parser::TESTS_CONTENT>(data),
-                       get<request_parser::TESTS_CONTENT>(data) +
-                       get<request_parser::TESTS_CONTENT_LEN>(data)
+    string fileContent(get<request_parser::SRC_CONTENT>(data),
+                       get<request_parser::SRC_CONTENT>(data) +
+                       get<request_parser::SRC_CONTENT_LEN>(data)
                       );
     boost::replace_all(fileContent, "<", "&lt");
     boost::replace_all(fileContent, ">", "&gt");

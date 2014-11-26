@@ -22,6 +22,9 @@ add_custom_command(TARGET mod_grader POST_BUILD
 # Create grader shared library
 find_package(Boost 1.54 COMPONENTS filesystem REQUIRED)
 include_directories( ${Boost_INCLUDE_DIR} )
-add_library(grader SHARED ${PROJECT_SOURCE_DIR}/src/subtest.cpp ${PROJECT_SOURCE_DIR}/src/configuration.cpp ${PROJECT_SOURCE_DIR}/src/task.cpp)
-target_link_libraries(grader ${Boost_LIBRARIES})
+
+find_library(POCO_FOUNDATION PocoFoundation REQUIRED)
+
+add_library(grader SHARED src/grader_base.cpp ${PROJECT_SOURCE_DIR}/src/subtest.cpp ${PROJECT_SOURCE_DIR}/src/configuration.cpp)
+target_link_libraries(grader ${Boost_LIBRARIES} ${POCO_FOUNDATION})
                                                 

@@ -3,6 +3,7 @@
 
 // STL headers
 #include <string>
+#include <map>
 
 // BOOST headers
 #include <boost/interprocess/containers/string.hpp>
@@ -48,6 +49,8 @@ namespace grader
     inline subtest_i_o io() const { return m_io; }
     inline const shm_path& path() const { return m_path; }
   };
+  
+  using test = std::pair<subtest, subtest>;
 }
 
 #endif // SUBTEST_HPP

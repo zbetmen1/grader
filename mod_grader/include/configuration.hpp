@@ -19,6 +19,7 @@ namespace grader
     
     static const std::string SHMEM_NAME;
     static const std::string BASE_DIR;
+    static const std::string SHELL;
     static constexpr std::size_t SHMEM_SIZE = 65535U;
   private:
     map_type m_conf;

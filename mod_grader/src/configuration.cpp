@@ -9,6 +9,7 @@ namespace grader
   
   const string configuration::SHMEM_NAME = "SHMEM_NAME";
   const string configuration::BASE_DIR = "BASE_DIR";
+  const string configuration::SHELL = "SHELL";
   
   configuration::configuration()
   {}
