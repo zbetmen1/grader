@@ -43,10 +43,10 @@ namespace grader
                                    char*       /* tests */,
                                    std::size_t /* tests length */
                                    >;
-    static constexpr unsigned char SRC_NAME = 0;
-    static constexpr unsigned char SRC_SIZE = 1;
-    static constexpr unsigned char SRC_CONTENT = 2;
-    static constexpr unsigned char SRC_CONTENT_LEN = 3;
+    static constexpr unsigned char FILE_NAME = 0;
+    static constexpr unsigned char FILE_NAME_LEN = 1;
+    static constexpr unsigned char FILE_CONTENT = 2;
+    static constexpr unsigned char FILE_CONTENT_LEN = 3;
     static constexpr unsigned char TESTS_CONTENT = 4;
     static constexpr unsigned char TESTS_CONTENT_LEN = 5;
     

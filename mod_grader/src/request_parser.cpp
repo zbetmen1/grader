@@ -75,9 +75,9 @@ namespace grader
     
     // Initialize file name and size
     char* filename = range.end();
-    get<SRC_NAME>(toFill) = filename;
+    get<FILE_NAME>(toFill) = filename;
     while (*filename != '\"') ++filename;
-    get<SRC_SIZE>(toFill) = static_cast<size_t>(filename - range.end());
+    get<FILE_NAME_LEN>(toFill) = static_cast<size_t>(filename - range.end());
     
     // Skip two lines (this line and Content-Type line)
     body = filename + 1;
@@ -87,9 +87,9 @@ namespace grader
     while (*body == '\n' || *body == '\r') ++body; // Move to next line skipping new line chars (skipped TWO lines in total)
     
     // Find next boundary, that will be end of file. File begins at 'body'
-    get<SRC_CONTENT>(toFill) = body;
+    get<FILE_CONTENT>(toFill) = body;
     range = boost::find_first(body, boundary);
-    get<SRC_CONTENT_LEN>(toFill) = range.begin() - get<SRC_CONTENT>(toFill);
+    get<FILE_CONTENT_LEN>(toFill) = range.begin() - get<FILE_CONTENT>(toFill);
     
     // Move to the next line
     body = range.end();

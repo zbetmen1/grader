@@ -1,6 +1,7 @@
 // Project headers
 #include "mod_grader.hpp"
 #include "request_parser.hpp"
+#include "task.hpp"
 
 // STL headers
 #include <cstring>
@@ -11,6 +12,7 @@
 
 // BOOST headers
 #include <boost/algorithm/string.hpp>
+#include <boost/interprocess/sync/interprocess_mutex.hpp>
 
 using namespace std;
 using namespace grader;
@@ -39,14 +41,18 @@ EXTERN_C int grader_handler(request_rec* r)
     request_parser parser(r);
     request_parser::parsed_data data;
     parser.parse(data);
-    string fileContent(get<request_parser::SRC_CONTENT>(data),
-                       get<request_parser::SRC_CONTENT>(data) +
-                       get<request_parser::SRC_CONTENT_LEN>(data)
-                      );
-    boost::replace_all(fileContent, "<", "&lt");
-    boost::replace_all(fileContent, ">", "&gt");
-    ap_set_content_type(r, "text/html");
-    ap_rprintf(r, "<pre>%s</pre>\n", fileContent.c_str());
+    task* newTask = task::create_task(get<request_parser::FILE_NAME>(data),
+                                      get<request_parser::FILE_NAME_LEN>(data),
+                                      get<request_parser::FILE_CONTENT>(data),
+                                      get<request_parser::FILE_CONTENT_LEN>(data),
+                                      get<request_parser::TESTS_CONTENT>(data),
+                                      get<request_parser::TESTS_CONTENT_LEN>(data));
+//     newTask->run_all();
+    ap_rprintf(r, "%s\n", newTask->id());
+  }
+  else if (r->method_number == M_DELETE)
+  {
+    
   }
   else 
   {

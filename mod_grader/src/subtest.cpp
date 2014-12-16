@@ -23,4 +23,16 @@ namespace grader
     m_path.reserve(path.size());
     copy(path.cbegin(), path.cend(), m_path.begin());
   }
+  
+  subtest::subtest_i_o subtest::io_from_str(const string& ioStr)
+  {
+    if ("std" == ioStr)
+      return subtest_i_o::STD;
+    else if ("cmd" == ioStr)
+      return subtest_i_o::CMD;
+    else if ("file" == ioStr)
+      return subtest_i_o::FILE;
+    else
+      throw runtime_error("Wrong input given!");
+  }
 }

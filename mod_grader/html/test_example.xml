@@ -23,7 +23,7 @@
   If this explained format is broken request will result in HTTP error that will not 
   be descriptive as HTTP codes are very limited.
 -->
-<test><!-- EXAMPLE: Numbers are given as cmd line arguments 
+<test memory="67108864" time="4000" language="C++11"><!-- EXAMPLE: Numbers are given as cmd line arguments 
        calculate it's sum and write it to stdout. -->
   
   <input type="cmd">
