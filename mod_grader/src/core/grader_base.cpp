@@ -26,6 +26,7 @@
 
 // STL headers
 #include <utility>
+#include <stdexcept>
 
 // BOOST headers
 #include <boost/iostreams/device/mapped_file.hpp>
@@ -48,7 +49,14 @@ namespace grader
   void grader_base::initialize(grader::task* t)
   {
     m_task = t;
-    boost::filesystem::create_directory(dir_path());
+    try
+    {
+      boost::filesystem::create_directory(dir_path());
+    }
+    catch (const boost::filesystem::filesystem_error& e)
+    {
+      string str = e.what();
+    }
   }
   
   grader_base::~grader_base()

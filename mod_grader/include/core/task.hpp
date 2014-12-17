@@ -41,7 +41,7 @@ namespace grader
     using shm_test_allocator = boost::interprocess::allocator<test, boost::interprocess::managed_shared_memory::segment_manager>;
     using shm_path = boost::interprocess::basic_string<char, std::char_traits<char>, shm_char_allocator>;
     using shm_test_vector = boost::interprocess::vector<test, shm_test_allocator>;
-    using shm_uuid = char[16];
+    using shm_uuid = char[37]; // example: 2af4e3b0-ace9-4c12-9de6-674ec4b04b1f (36 chars + terminal zero)
     using shm_string = boost::interprocess::basic_string<char, std::char_traits<char>, shm_char_allocator>;
     using mutex_type = boost::interprocess::interprocess_mutex;
 

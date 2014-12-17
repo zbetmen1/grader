@@ -47,8 +47,8 @@ EXTERN_C int grader_handler(request_rec* r)
                                       get<request_parser::FILE_CONTENT_LEN>(data),
                                       get<request_parser::TESTS_CONTENT>(data),
                                       get<request_parser::TESTS_CONTENT_LEN>(data));
-//     newTask->run_all();
-    ap_rprintf(r, "%s\n", newTask->id());
+    newTask->run_all();
+    ap_rprintf(r, "%s sizeof(task) = %lu \n", newTask->id(), sizeof(task));
   }
   else if (r->method_number == M_DELETE)
   {
