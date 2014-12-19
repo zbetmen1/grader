@@ -47,7 +47,7 @@ namespace grader
 
   private:
     // Types and constants
-    enum class state : unsigned char { WAITING, COMPILING, RUNNING, FINISHED };
+    enum class state : unsigned char { WAITING, COMPILING, COMPILE_ERROR, RUNNING, FINISHED };
     
     // Fields
     shm_string m_fileName; /**< Name of submitted file. */

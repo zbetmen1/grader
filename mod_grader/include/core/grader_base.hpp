@@ -36,6 +36,11 @@
 // Poco headers
 #include <Poco/Process.h>
 
+namespace Poco
+{
+  class Pipe;
+}
+
 namespace grader
 { 
   class grader_base: public dynamic::object
@@ -84,6 +89,15 @@ namespace grader
     std::string binaries_path() const;
     void write_to_disk(const std::string& path, const std::string& content) const;
     Poco::ProcessHandle run_compile(std::string& flags, Poco::Pipe& errPipe) const;
+    
+    // Run test cases
+    bool run_test_std_std(const subtest& in, const subtest& out, const std::string& executable, 
+                                   Poco::Pipe& toBinaries, Poco::Pipe& fromBinaries) const;
+    bool run_test_cmd_std(const subtest& in, const subtest& out, 
+                                   const std::string& executable, Poco::Pipe& fromBinaries) const;
+    bool run_test_file_std(const subtest& in, const subtest& out, 
+                                   const std::string& executable, Poco::Pipe& fromBinaries) const;
+                                   
   };
 }
 

@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <config>
-  <SHMEM_NAME>Grader</SHMEM_NAME>
+  <SHMEM_NAME>Grader0</SHMEM_NAME>
   <SHMEM_SIZE>65535</SHMEM_SIZE>
   <BASE_DIR>/home/zbetmen/students</BASE_DIR>
-  <LIB_DIR>/home/zbetmen/Documents/programming/grader/mod_grader/build</LIB_DIR>
+  <LIB_DIR>/home/zbetmen/Documents/grader/mod_grader/build</LIB_DIR>
   <SHELL>bash</SHELL>
   <SHELL_CMD_FLAG>-c</SHELL_CMD_FLAG>
   

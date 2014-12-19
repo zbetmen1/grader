@@ -1,0 +1,8 @@
+<test memory="67108864" time="4000" language="c">
+  <input type="std">
+    whatever
+  </input>
+  <output type="std">
+    55
+  </output>
+</test>
