@@ -27,10 +27,13 @@
 // STL headers
 #include <utility>
 #include <stdexcept>
+#include <iterator>
+#include <sstream>
 
 // BOOST headers
 #include <boost/iostreams/device/mapped_file.hpp>
 #include <boost/filesystem.hpp>
+#include <boost/algorithm/string.hpp>
 
 // Poco headers
 #include <Poco/Process.h>
@@ -83,8 +86,7 @@ namespace grader
   string grader_base::strip_extension(const string& fileName) const
   {
     auto pointPos = fileName.find_last_of('.');
-    auto fileNameLen = fileName.length();
-    return fileName.substr(0, fileNameLen - pointPos);
+    return fileName.substr(0, pointPos);
   }
 
   string grader_base::get_extension(const string& fileName) const
@@ -104,9 +106,9 @@ namespace grader
     copy(content.cbegin(), content.cend(), mf.data());
   }
   
-  Poco::ProcessHandle grader_base::run_compile(const string& compilerCmd, const vector<string>& flags, 
-                                               Poco::Pipe& errPipe) const
+  Poco::ProcessHandle grader_base::run_compile(string& flags, Poco::Pipe& errPipe) const
   {
+    vector<string> pocoFlags{configuration::instance().get(configuration::SHELL_CMD_FLAG)->second, flags};
     // Check if file needs to written to disk
     if (is_compiling_from_stdin())
     {
@@ -116,15 +118,22 @@ namespace grader
       stdinPipeStream << m_task->file_content();
       
       // Launch compilation
-      return Poco::Process::launch(compilerCmd, flags, &stdinPipe, nullptr, &errPipe);
+      return Poco::Process::launch(configuration::instance().get(configuration::SHELL)->second, pocoFlags, &stdinPipe, nullptr, &errPipe);
     }
     else 
     {
-      // Write file to disk first
-      write_to_disk(source_path(), m_task->file_content());
+      // Write file to disk first and add file as a flag
+      auto src = source_path();
+      write_to_disk(src, m_task->file_content());
+      pocoFlags[1] += " " + src;
+      
+      // Set permissions
+      boost::filesystem::permissions(src, boost::filesystem::add_perms | boost::filesystem::others_read);
+      boost::filesystem::permissions(dir_path(), boost::filesystem::add_perms | boost::filesystem::others_write);
+      
       
       // Launch compilation
-      return Poco::Process::launch(compilerCmd, flags, nullptr, nullptr, &errPipe);
+      return Poco::Process::launch(configuration::instance().get(configuration::SHELL)->second, pocoFlags, nullptr, nullptr, nullptr);
     }
   }
   
@@ -135,22 +144,22 @@ namespace grader
       return true;
     
     // Set up compiler command and it's arguments
-    auto compilerCmd = compiler();
     auto outputPath = binaries_path();
-    vector<string> flags;
+    string flags = compiler() + " ";
     compiler_flags(flags);
-    flags.push_back(compiler_filename_flag() + " " + outputPath);
+    flags += compiler_filename_flag() + " " + outputPath;
     
     // Launch compiler
     Poco::Pipe errPipe;
-    auto ph = run_compile(compilerCmd, flags, errPipe);
+    auto ph = run_compile(flags, errPipe);
     
     // Wait for process to finish and return error data if any
     ph.wait();
     if (!boost::filesystem::exists(outputPath))
     {
       Poco::PipeInputStream errPipeStream(errPipe);
-      errPipeStream >> compileErr;
+      compileErr = move(string(istreambuf_iterator<char>(errPipeStream),
+                               istreambuf_iterator<char>()));
       return false;
     }
     else 
@@ -162,54 +171,27 @@ namespace grader
   bool grader_base::run_test(const test& t) const
   {
     auto executable = binaries_path();
-    subtest in = t.first;
-    subtest out = t.second;
-    Poco::Pipe inPipe;
-    Poco::Pipe outPipe;
-    Poco::PipeOutputStream inStream(inPipe); // 'in' as it will be used as input to executable
-    Poco::PipeInputStream outStream(outPipe); // 'out' as it will be used to collect output from executable
-    Poco::Pipe* inPipeAddress = nullptr;
-    Poco::Pipe* outPipeAddress = nullptr;
-    vector<string> args;
+    const subtest& in = t.first;
+    const subtest& out = t.second;
     
-    // Fill process launch arguments using informations from subtests
-    if (subtest::subtest_i_o::STD == in.io())
+    // Case when both i/o are from standard streams
+    if (subtest::subtest_i_o::STD == in.io() && 
+        subtest::subtest_i_o::STD == out.io())
     {
-      inStream << in.content();
-      inPipeAddress = &inPipe;
+      Poco::Pipe toBinaries, fromBinaries;
+      auto ph = Poco::Process::launch(executable, vector<string>{}, &toBinaries, &fromBinaries, nullptr);
+      Poco::PipeOutputStream toBinariesStream(toBinaries);
+      Poco::PipeInputStream fromBinariesStream(fromBinaries);
+      toBinariesStream << in.content().c_str();
+      toBinariesStream.close();
+      ph.wait();
+      stringstream result;
+      result << fromBinariesStream.rdbuf();
+      auto resStr = move(result.str());
+      boost::trim(resStr);
+      return resStr == out.content().c_str();
     }
-    else if (subtest::subtest_i_o::CMD == in.io())
-    {
-      istringstream argsStrStream(in.content().c_str());
-      args.reserve(8);
-      copy(istream_iterator<string>(argsStrStream), istream_iterator<string>(), back_inserter(args));
-    }
-    else if (subtest::subtest_i_o::FILE == in.io())
-    {
-      write_to_disk(dir_path() + "/" + in.path().c_str(), in.content().c_str());
-    }
-    if (subtest::subtest_i_o::STD == out.io())
-    {
-      outPipeAddress = &outPipe;
-    }
-    
-    // Launch process with executable and wait for it to finish
-    auto ph = Poco::Process::launch(executable, args, inPipeAddress, outPipeAddress, nullptr);
-    // TODO: Set restrictions on process!!!
-    ph.wait();
-    
-    // Compare output of executable with given content of out subtest
-    stringstream buffer;
-    if (nullptr == outPipeAddress)
-    {
-      ifstream inFile(out.path().c_str());
-      buffer << inFile.rdbuf();
-    }
-    else 
-    {
-      buffer << outStream.rdbuf(); 
-    }
-    return out.content().c_str() == buffer.str();
+    return false;
   }
 
 }

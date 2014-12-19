@@ -9,6 +9,7 @@
 #include <iostream>
 #include <fstream>
 #include <cerrno>
+#include <string>
 
 // BOOST headers
 #include <boost/algorithm/string.hpp>
@@ -48,7 +49,7 @@ EXTERN_C int grader_handler(request_rec* r)
                                       get<request_parser::TESTS_CONTENT>(data),
                                       get<request_parser::TESTS_CONTENT_LEN>(data));
     newTask->run_all();
-    ap_rprintf(r, "%s sizeof(task) = %lu \n", newTask->id(), sizeof(task));
+    ap_rprintf(r, "%s \n", newTask->status().c_str());
   }
   else if (r->method_number == M_DELETE)
   {

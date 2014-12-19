@@ -16,7 +16,7 @@ protected:
     virtual const char* name() const;
     virtual bool is_compilable() const;
     virtual std::string compiler() const;
-    virtual void compiler_flags(std::vector< std::string >& flags) const;
+    virtual void compiler_flags(std::string& flags) const;
     virtual std::string compiler_filename_flag() const;
     virtual bool is_compiling_from_stdin() const;
 };

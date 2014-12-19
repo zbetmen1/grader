@@ -35,13 +35,11 @@ namespace grader
     shm_path m_path; // Path as optional parameter (again see html/test_example.xml for more info).
     
   public:
-    explicit subtest(subtest_type type, const std::string& content, subtest_i_o io, const std::string& path);
+    explicit subtest(grader::subtest::subtest_type type, std::string& cont, grader::subtest::subtest_i_o IO, const std::string& path);
     
-    // Subtest can be moved and copied
-    subtest(const subtest&) = default;
-    subtest& operator=(const subtest&) = default;
-    subtest(subtest&&) = default;
-    subtest& operator=(subtest&&) = default;
+    // Subtest can be moved
+    subtest(subtest&&);
+    subtest& operator=(subtest&&);
     
     // API
     inline subtest_type type() const { return m_type; }

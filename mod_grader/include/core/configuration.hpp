@@ -58,6 +58,8 @@ namespace grader
     static const std::string BASE_DIR;
     static const std::string SHMEM_SIZE;
     static const std::string LIB_DIR;
+    static const std::string SHELL;
+    static const std::string SHELL_CMD_FLAG;
   private:
     map_type m_conf;
     std::unordered_set<language> m_languages;

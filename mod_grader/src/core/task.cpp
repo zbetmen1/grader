@@ -29,7 +29,7 @@ namespace grader
   
   task::task(const char* fileName, std::size_t fnLen, const char* fileContent, std::size_t fcLen, 
              shm_test_vector&& tests, const boost::uuids::uuid& id, size_t memoryBytes, size_t timeMS, const string& language)
-  : m_fileName(shm().get_segment_manager()), m_fileContent(shm().get_segment_manager()), m_tests(tests), 
+  : m_fileName(shm().get_segment_manager()), m_fileContent(shm().get_segment_manager()), m_tests(boost::move(tests)), 
   m_memoryBytes(memoryBytes), m_timeMS(timeMS), m_state(state::WAITING), m_status(shm().get_segment_manager())
   {
     // Copy file name
@@ -48,6 +48,27 @@ namespace grader
     copy(language.cbegin(), language.cend(), m_language);
   }
 
+  task::task(task&& oth)
+  : m_fileName(boost::move(oth.m_fileName)), m_fileContent(boost::move(oth.m_fileContent)), m_tests(boost::move(oth.m_tests)),
+  m_memoryBytes(oth.m_memoryBytes), m_timeMS(oth.m_timeMS), m_state(oth.m_state), m_status(boost::move(oth.m_status))
+  {
+  }
+  
+  task& task::operator=(task&& oth)
+  {
+    if (&oth != this)
+    {
+      m_fileName = boost::move(oth.m_fileName);
+      m_fileContent = boost::move(oth.m_fileContent);
+      m_tests = boost::move(oth.m_tests);
+      m_memoryBytes = oth.m_memoryBytes;
+      m_timeMS = oth.m_timeMS;
+      m_state = oth.m_state;
+      m_status = boost::move(oth.m_status);
+    }
+    return *this;
+  }
+  
   void task::run_all()
   {
     // Create grader object
@@ -71,10 +92,12 @@ namespace grader
     
     // Run tests
     set_state(task::state::RUNNING);
-    vector<bool> testResults(m_tests.size());
+    vector<bool> testResults;
+    testResults.reserve(m_tests.size());
     for (const auto& t : m_tests)
     {
-      testResults.push_back(graderObj->run_test(t));
+      bool res = graderObj->run_test(t);
+      testResults.push_back(res);
     }
     
     // Construct status message
@@ -86,7 +109,8 @@ namespace grader
       formater << "\"TEST" << i << "\" :" << to_string(testResults[i]) << " ,\n";
     }
     formater << "\"TEST" << (testResSize - 1) << "\" :" << to_string(testResults[testResSize - 1]) << " }";
-    m_status = formater.str().c_str();
+    auto jsonStr = move(formater.str());
+    m_status.insert(m_status.begin(), jsonStr.cbegin(), jsonStr.cend());
     set_state(task::state::FINISHED);
   }
   
@@ -176,7 +200,8 @@ namespace grader
         subtest out = subtest(subtest::subtest_out, treeItBegin->second.data(),
                         subtest::io_from_str(treeItBegin->second.get<string>("<xmlattr>.type")),
                         treeItBegin->second.get("<xmlattr>.path", ""));
-        tests.emplace_back(in, out);
+        tests.emplace_back(move(in), move(out));
+        const test& tmp = tests.front();
       }
       ++treeItBegin;
     }

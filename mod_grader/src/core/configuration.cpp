@@ -24,6 +24,8 @@ namespace grader
   const string configuration::BASE_DIR = "BASE_DIR";
   const string configuration::SHMEM_SIZE = "SHMEM_SIZE";
   const string configuration::LIB_DIR = "LIB_DIR";
+  const string configuration::SHELL = "SHELL";
+  const string configuration::SHELL_CMD_FLAG = "SHELL_CMD_FLAG";
   
   configuration::configuration()
   {

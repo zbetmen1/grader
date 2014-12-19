@@ -71,7 +71,7 @@ namespace grader
     // Each grader needs to provide these informations so base class can compile sources
     virtual bool is_compilable() const = 0;
     virtual std::string compiler() const = 0;
-    virtual void compiler_flags(std::vector<std::string>& flags) const = 0;
+    virtual void compiler_flags(std::string& flags) const = 0;
     virtual std::string compiler_filename_flag() const = 0;
     virtual bool is_compiling_from_stdin() const = 0;
 
@@ -83,7 +83,7 @@ namespace grader
     std::string source_path() const;
     std::string binaries_path() const;
     void write_to_disk(const std::string& path, const std::string& content) const;
-    Poco::ProcessHandle run_compile(const std::string& compilerCmd, const std::vector< std::string >& flags, Poco::Pipe& errPipe) const;
+    Poco::ProcessHandle run_compile(std::string& flags, Poco::Pipe& errPipe) const;
   };
 }
 

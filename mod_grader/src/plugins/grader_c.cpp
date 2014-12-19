@@ -31,12 +31,12 @@ bool grader_c::is_compilable() const
 
 string grader_c::compiler() const
 {
-  return "/usr/bin/gcc";
+  return "gcc";
 }
 
-void grader_c::compiler_flags(vector<string >& flags) const
+void grader_c::compiler_flags(string& flags) const
 {
-  flags = vector<string>{"-std=c99", "-O2", "-lm", "-static"};
+  flags += "-g -O0 -std=c99 -lm -static -Wno-unused-result ";
 }
 
 string grader_c::compiler_filename_flag() const

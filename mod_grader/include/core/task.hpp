@@ -70,8 +70,8 @@ namespace grader
     task& operator=(const task&) = delete;
     
     // Task is movable by default (all members are movable)
-    task(task&&) = default;
-    task& operator=(task&&) = default;
+    task(task&&);
+    task& operator=(task&&);
     
     // Getters
     const char* file_name() const { return m_fileName.c_str(); }
