@@ -1,0 +1,31 @@
+<test memory="67108864" time="4000" language="c">
+  <input type="cmd">
+    1 
+    2 
+    3 
+    4 
+    5 
+    6 
+    7 
+    8 
+    9 
+    10
+  </input>
+  <output type="file" path="izlaz.txt">
+    55
+  </output>
+  
+  <input type="cmd">0</input>
+  <output type="file" path="izlaz.txt">0</output>
+  
+  <input type="cmd">
+    -1 
+    1 
+    -2 
+    3 
+    -4 
+    3 
+    1
+  </input>
+  <output type="file" path="izlaz.txt">1</output>
+</test>
