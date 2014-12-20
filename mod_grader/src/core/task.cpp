@@ -74,16 +74,18 @@ void task::run_all()
 {
   // Create grader object
   const configuration& conf = configuration::instance();
-  auto grNameAndLibName = conf.get_grader(m_language);
-  string libPath = conf.get(configuration::LIB_DIR)->second + "/" + grNameAndLibName.second;
+  auto graderInfo = conf.get_grader(m_language);
+  string libPath = conf.get(configuration::LIB_DIR)->second + "/" + 
+                            configuration::get_lib_name(graderInfo);
   dynamic::shared_lib lib(libPath);
-  auto graderObj = lib.make_object<grader_base>(grNameAndLibName.first);
+  auto graderObj = lib.make_object<grader_base>(configuration::get_grader_name(graderInfo));
   if (!graderObj)
   {
-    string msg("Couldn't create grader object! Grader name: " + grNameAndLibName.first + " Library path: " + libPath + ".");
+    string msg("Couldn't create grader object! Grader name: " + configuration::get_grader_name(graderInfo) 
+               + " Library path: " + libPath + ".");
     throw runtime_error(msg.c_str());
   }
-  graderObj->initialize(this);
+  graderObj->initialize(this, configuration::get_interpreter_path(graderInfo));
   
   // Compile source
   set_state(task::state::COMPILING);

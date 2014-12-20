@@ -6,6 +6,7 @@
 #include <string>
 #include <cstddef>
 #include <unordered_set>
+#include <tuple>
 
 // BOOST headers
 #include <boost/interprocess/managed_shared_memory.hpp>
@@ -17,9 +18,10 @@ namespace grader
 {
   struct language 
   {
-    std::string name, grader_name, lib_name;
-    language(const std::string& name_, const std::string& grader_name_, const std::string& lib_name_)
-    : name(name_), grader_name(grader_name_), lib_name(lib_name_)
+    std::string name, grader_name, lib_name, interpreter_path;
+    language(const std::string& name_, const std::string& grader_name_, const std::string& lib_name_, 
+             const std::string& interpreter_path_ = "")
+    : name(name_), grader_name(grader_name_), lib_name(lib_name_), interpreter_path(interpreter_path_)
     {}
   };
 }
@@ -48,7 +50,9 @@ namespace grader
   class configuration
   {
   public:
+    // Types
     using map_type = std::unordered_map<std::string, std::string>;
+    using grader_info = std::tuple<std::string, std::string, std::string>;
     
     // Compile time parameters
     static const std::string PATH_TO_CONFIG_FILE;
@@ -79,8 +83,10 @@ namespace grader
     
     // API
     map_type::const_iterator get(const std::string& key) const;
-    std::pair<std::string, std::string> get_grader(const std::string& languageName) const;
-    
+    grader_info get_grader(const std::string& languageName) const;
+    static const std::string& get_grader_name(const grader_info& grInfo);
+    static const std::string& get_lib_name(const grader_info& grInfo);
+    static const std::string& get_interpreter_path(const grader_info& grInfo);
   private:
     void load_config();
   };

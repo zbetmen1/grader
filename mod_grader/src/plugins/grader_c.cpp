@@ -48,3 +48,9 @@ bool grader_c::is_compiling_from_stdin() const
 {
   return false;
 }
+
+bool grader_c::is_interpreted() const
+{
+  return false;
+}
+

@@ -37,13 +37,13 @@ namespace grader
     return m_conf.find(key);
   }
 
-  pair< string, string > configuration::get_grader(const string& languageName) const
+  configuration::grader_info configuration::get_grader(const string& languageName) const
   {
     auto it = m_languages.find(language(languageName, "", ""));
     if (m_languages.cend() == it)
-      return move(make_pair<string, string>("",""));
+      return move(make_tuple<string, string, string>("","", ""));
     else 
-      return move(make_pair(it->grader_name, it->lib_name));
+      return move(make_tuple(it->grader_name, it->lib_name, it->interpreter_path));
   }
   
   void configuration::load_config()
@@ -66,6 +66,11 @@ namespace grader
         string name = treeItBegin->second.get_child("NAME").get_value<string>();
         string graderName = treeItBegin->second.get_child("GRADER").get_value<string>();
         string libName = treeItBegin->second.get_child("LIB").get_value<string>();
+        auto checkIfInterpreted = treeItBegin->second.get_child_optional("INTERPRETER");
+        if (checkIfInterpreted)
+        {
+          m_languages.emplace(name, graderName, libName, checkIfInterpreted->get_value<string>());
+        }
         m_languages.emplace(name, graderName, libName);
       }
       ++treeItBegin;
@@ -92,5 +97,20 @@ namespace grader
   const void* get_configuration()
   {
     return &configuration::instance();
+  }
+
+  const string& configuration::get_grader_name(const configuration::grader_info& grInfo)
+  {
+    return ::get<0>(grInfo);
+  }
+
+  const string& configuration::get_lib_name(const configuration::grader_info& grInfo)
+  {
+    return ::get<1>(grInfo);
+  }
+  
+  const string& configuration::get_interpreter_path(const configuration::grader_info& grInfo)
+  {
+    return ::get<2>(grInfo);
   }
 }

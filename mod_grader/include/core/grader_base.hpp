@@ -47,6 +47,10 @@ namespace grader
   class grader_base: public dynamic::object
   {
     task* m_task;
+    std::string m_dirPath;
+    std::string m_executablePath;
+    std::string m_sourcePath;
+    std::string m_interpreterPath;
   public:
     // Grader is DefaultConstructible
     grader_base();
@@ -61,7 +65,7 @@ namespace grader
     
     // Grader is base class so destructor is virtual and we must have initialization method (cause of shared library loading)
     virtual ~grader_base();
-    void initialize(task* t);
+    void initialize(task* t, const std::string& interpreterPath = "");
     
     // Informations about particular grader
     virtual const std::vector<const char*>& extensions() const = 0;
@@ -80,7 +84,8 @@ namespace grader
     virtual void compiler_flags(std::string& flags) const = 0;
     virtual std::string compiler_filename_flag() const = 0;
     virtual bool is_compiling_from_stdin() const = 0;
-
+    virtual bool is_interpreted() const = 0;
+    
   private:
     // Utilities
     std::string strip_extension(const std::string& fileName) const;

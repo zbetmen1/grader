@@ -14,13 +14,20 @@
     <LIB>libgrader_c.so</LIB>
   </LANGUAGE>
   <LANGUAGE>
-    <NAME>c++</NAME>
-    <GRADER>grader_c++</GRADER>
-    <LIB>libgrader_c++.so</LIB>
+    <NAME>cpp</NAME>
+    <GRADER>grader_cpp</GRADER>
+    <LIB>libgrader_cpp.so</LIB>
   </LANGUAGE>
   <LANGUAGE>
-    <NAME>c++11</NAME>
-    <GRADER>grader_c++11</GRADER>
-    <LIB>libgrader_c++11.so</LIB>
+    <NAME>cpp11</NAME>
+    <GRADER>grader_cpp11</GRADER>
+    <LIB>libgrader_cpp11.so</LIB>
+  </LANGUAGE>
+  
+  <!-- Python is TODO grader! -->
+  <LANGUAGE>
+    <NAME>py</NAME>
+    <GRADER>grader_py</GRADER>
+    <LIB>libgrader_py.so</LIB>
   </LANGUAGE>
 </config>

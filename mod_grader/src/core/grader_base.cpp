@@ -48,22 +48,20 @@ grader_base::grader_base()
 {
 }
 
-void grader_base::initialize(grader::task* t)
+void grader_base::initialize(task* t, const string& interpreterPath)
 {
   m_task = t;
-  try
-  {
-    boost::filesystem::create_directory(dir_path());
-  }
-  catch (const boost::filesystem::filesystem_error& e)
-  {
-    string str = e.what();
-  }
+  m_dirPath = dir_path();
+  m_executablePath = binaries_path();
+  m_sourcePath = source_path();
+  if (!interpreterPath.empty())
+    m_interpreterPath = interpreterPath;
+  boost::filesystem::create_directories(m_dirPath);
 }
 
 grader_base::~grader_base()
 {
-  boost::filesystem::remove_all(dir_path());
+  boost::filesystem::remove_all(m_dirPath);
 }
 
 string grader_base::dir_path() const
@@ -74,12 +72,12 @@ string grader_base::dir_path() const
 
 string grader_base::source_path() const
 {
-  return dir_path() + "/" + m_task->file_name();
+  return m_dirPath + "/" + m_task->file_name();
 }
 
 string grader_base::binaries_path() const
 {
-  return dir_path() + "/" + strip_extension(m_task->file_name());
+  return m_dirPath + "/" + strip_extension(m_task->file_name());
 }
 
 string grader_base::strip_extension(const string& fileName) const
@@ -122,13 +120,12 @@ Poco::ProcessHandle grader_base::run_compile(string& flags, Poco::Pipe& errPipe)
   else 
   {
     // Write file to disk first and add file as a flag
-    auto src = source_path();
-    write_to_disk(src, m_task->file_content());
-    pocoFlags[1] += " " + src;
+    write_to_disk(m_sourcePath, m_task->file_content());
+    pocoFlags[1] += " " + m_sourcePath;
     
     // Set permissions
-    boost::filesystem::permissions(src, boost::filesystem::add_perms | boost::filesystem::others_read);
-    boost::filesystem::permissions(dir_path(), boost::filesystem::add_perms | boost::filesystem::others_write);
+    boost::filesystem::permissions(m_sourcePath, boost::filesystem::add_perms | boost::filesystem::others_read);
+    boost::filesystem::permissions(m_dirPath, boost::filesystem::add_perms | boost::filesystem::others_write);
     
     
     // Launch compilation
@@ -143,10 +140,9 @@ bool grader_base::compile(string& compileErr) const
     return true;
   
   // Set up compiler command and it's arguments
-  auto outputPath = binaries_path();
   string flags = compiler() + " ";
   compiler_flags(flags);
-  flags += compiler_filename_flag() + " " + outputPath;
+  flags += compiler_filename_flag() + " " + m_executablePath;
   
   // Launch compiler
   Poco::Pipe errPipe;
@@ -166,34 +162,33 @@ bool grader_base::compile(string& compileErr) const
 
 bool grader_base::run_test(const test& t) const
 {
-  auto executable = binaries_path();
   const subtest& in = t.first;
   const subtest& out = t.second;
   Poco::Pipe toBinaries, fromBinaries;
   
   // Case when both i/o are from standard streams
   if (subtest::subtest_i_o::STD == in.io() && subtest::subtest_i_o::STD == out.io())
-    return run_test_std_std(in, out, executable, toBinaries, fromBinaries);
+    return run_test_std_std(in, out, m_executablePath, toBinaries, fromBinaries);
   
   // Case when input comes as a command line args and executable output is written to stdout
   else if (subtest::subtest_i_o::CMD == in.io() && subtest::subtest_i_o::STD == out.io())
-    return run_test_cmd_std(in, out, executable, fromBinaries);
+    return run_test_cmd_std(in, out, m_executablePath, fromBinaries);
   
   // Case when input comes as file and executable output is written to stdout
   else if (subtest::subtest_i_o::FILE == in.io() && subtest::subtest_i_o::STD == out.io())
-    return run_test_file_std(in, out, executable, fromBinaries);
+    return run_test_file_std(in, out, m_executablePath, fromBinaries);
   
   // Case when input is stdin and output goes to file
   else if (subtest::subtest_i_o::STD == in.io() && subtest::subtest_i_o::FILE == out.io())
-    return run_test_std_file(in, out, executable, toBinaries);
+    return run_test_std_file(in, out, m_executablePath, toBinaries);
   
   // Case when input comes as cmd line arguments and output goes to file
   else if (subtest::subtest_i_o::CMD == in.io() && subtest::subtest_i_o::FILE == out.io())
-    return run_test_cmd_file(in, out, executable);
+    return run_test_cmd_file(in, out, m_executablePath);
   
   // Case when input is file and output goes to file
   else if (subtest::subtest_i_o::FILE == in.io() && subtest::subtest_i_o::FILE == out.io())
-    return run_test_file_file(in, out, executable);
+    return run_test_file_file(in, out, m_executablePath);
   return false;
 }
 
@@ -226,7 +221,7 @@ bool grader_base::run_test_file_std(const subtest& in, const subtest& out,
 {
   // Fill args and launch executable
   vector<string> args{create_file_input(in)};
-  auto ph = Poco::Process::launch(executable, args, dir_path(), nullptr, &fromBinaries, nullptr);
+  auto ph = Poco::Process::launch(executable, args, m_dirPath, nullptr, &fromBinaries, nullptr);
   Poco::PipeInputStream fromBinariesStream(fromBinaries);
   
   return evaluate_output_stdin(fromBinariesStream, out, ph);
@@ -237,8 +232,8 @@ bool grader_base::run_test_std_file(const subtest& in, const subtest& out, const
 {
   string path = out.path().c_str();
   if (!boost::filesystem::path(path).is_relative()) throw runtime_error("Absolute paths are not supported!");
-  auto absolutePath = dir_path() + '/' + path;
-  auto ph = Poco::Process::launch(executable, vector<string>{move(path)}, dir_path(), &toBinaries, nullptr, nullptr);
+  auto absolutePath = m_dirPath + '/' + path;
+  auto ph = Poco::Process::launch(executable, vector<string>{move(path)}, m_dirPath, &toBinaries, nullptr, nullptr);
   Poco::PipeOutputStream toBinariesStream(toBinaries);
   toBinariesStream << in.content().c_str();
   toBinariesStream.close();
@@ -251,14 +246,14 @@ bool grader_base::run_test_cmd_file(const subtest& in, const subtest& out, const
   // Check path first
   string path = out.path().c_str();
   if (!boost::filesystem::path(path).is_relative()) throw runtime_error("Absolute paths are not supported!");
-  auto absolutePath = dir_path() + '/' + path;
+  auto absolutePath = m_dirPath + '/' + path;
   
   // Fill args list
   vector<string> args{move(path)};
   stringstream argsStream;
   argsStream << in.content().c_str();
   args.insert(args.begin() + 1, istream_iterator<string>(argsStream), istream_iterator<string>());
-  auto ph = Poco::Process::launch(executable, args, dir_path(), nullptr, nullptr, nullptr);
+  auto ph = Poco::Process::launch(executable, args, m_dirPath, nullptr, nullptr, nullptr);
   
   return evaluate_output_file(absolutePath, out, ph);
 }
@@ -279,7 +274,7 @@ vector<string> grader_base::create_file_input(const subtest& in) const
 {
   string path = in.path().c_str();
   if (!boost::filesystem::path(path).is_relative()) throw std::runtime_error("Absolute paths are forbidden.");
-  string absolutePath = dir_path() + '/' + path;
+  string absolutePath = m_dirPath + '/' + path;
   write_to_disk(absolutePath, in.content().c_str());
   boost::filesystem::permissions(absolutePath, boost::filesystem::add_perms | boost::filesystem::others_read);
   return move(vector<string>{move(path)});
