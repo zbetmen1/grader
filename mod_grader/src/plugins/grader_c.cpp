@@ -29,7 +29,7 @@ bool grader_c::is_compilable() const
   return true;
 }
 
-string grader_c::compiler() const
+const char* grader_c::compiler() const
 {
   return "gcc";
 }
@@ -39,14 +39,14 @@ void grader_c::compiler_flags(string& flags) const
   flags += "-g -O0 -std=c99 -lm -static -Wno-unused-result ";
 }
 
-string grader_c::compiler_filename_flag() const
+const char* grader_c::compiler_filename_flag() const
 {
   return "-o";
 }
 
-bool grader_c::is_compiling_from_stdin() const
+bool grader_c::should_write_src_file() const
 {
-  return false;
+  return true;
 }
 
 bool grader_c::is_interpreted() const

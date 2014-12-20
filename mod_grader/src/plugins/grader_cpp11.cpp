@@ -29,7 +29,7 @@ bool grader_cpp11::is_compilable() const
   return true;
 }
 
-std::string grader_cpp11::compiler() const
+const char* grader_cpp11::compiler() const
 {
   return "g++";
 }
@@ -39,14 +39,14 @@ void grader_cpp11::compiler_flags(std::string& flags) const
   flags += " -std=c++11 ";
 }
 
-std::string grader_cpp11::compiler_filename_flag() const
+const char* grader_cpp11::compiler_filename_flag() const
 {
   return "-o";
 }
 
-bool grader_cpp11::is_compiling_from_stdin() const
+bool grader_cpp11::should_write_src_file() const
 {
-  return false;
+  return true;
 }
 
 bool grader_cpp11::is_interpreted() const

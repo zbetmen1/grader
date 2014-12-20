@@ -26,3 +26,8 @@
 *.exe
 *.out
 *.app
+
+# Project files and build
+mod_grader/.kdev4/
+mod_grader/build/
+mod_grader/mod_grader.kdev4

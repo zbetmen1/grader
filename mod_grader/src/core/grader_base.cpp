@@ -48,14 +48,12 @@ grader_base::grader_base()
 {
 }
 
-void grader_base::initialize(task* t, const string& interpreterPath)
+void grader_base::initialize(task* t)
 {
   m_task = t;
   m_dirPath = dir_path();
   m_executablePath = binaries_path();
-  m_sourcePath = source_path();
-  if (!interpreterPath.empty())
-    m_interpreterPath = interpreterPath;
+  m_sourcePath = source_path() + executable_extension();
   boost::filesystem::create_directories(m_dirPath);
 }
 
@@ -107,15 +105,14 @@ Poco::ProcessHandle grader_base::run_compile(string& flags, Poco::Pipe& errPipe)
 {
   vector<string> pocoFlags{configuration::instance().get(configuration::SHELL_CMD_FLAG)->second, flags};
   // Check if file needs to written to disk
-  if (is_compiling_from_stdin())
+  if (!should_write_src_file())
   {
-    // Write file content to stdin to give compiler (not writing to disk!)
     Poco::Pipe stdinPipe;
+    auto ph = Poco::Process::launch(configuration::instance().get(configuration::SHELL)->second, pocoFlags, &stdinPipe, nullptr, &errPipe);
     Poco::PipeOutputStream stdinPipeStream(stdinPipe);
     stdinPipeStream << m_task->file_content();
-    
-    // Launch compilation
-    return Poco::Process::launch(configuration::instance().get(configuration::SHELL)->second, pocoFlags, &stdinPipe, nullptr, &errPipe);
+    stdinPipeStream.close();
+    return ph;
   }
   else 
   {
@@ -137,12 +134,28 @@ bool grader_base::compile(string& compileErr) const
 {
   // Check if we need to compile at all
   if (!is_compilable())
+  {
+    if (should_write_src_file())
+    {
+      write_to_disk(m_sourcePath, m_task->file_content());
+    }
     return true;
+  }
   
   // Set up compiler command and it's arguments
-  string flags = compiler() + " ";
+  string flags; 
+  flags += compiler();
+  flags += ' ';
   compiler_flags(flags);
-  flags += compiler_filename_flag() + " " + m_executablePath;
+  flags += ' ';
+  
+  // In some cases there's no need to specify output for compiler (Java for example)
+  string compilerFilenameFlag = compiler_filename_flag();
+  if (!compilerFilenameFlag.empty())
+  {
+    flags += compilerFilenameFlag;
+    flags += ' ' + m_executablePath;
+  }
   
   // Launch compiler
   Poco::Pipe errPipe;
@@ -195,7 +208,7 @@ bool grader_base::run_test(const test& t) const
 bool grader_base::run_test_std_std(const subtest& in, const subtest& out, const string& executable, 
                                    Poco::Pipe& toBinaries, Poco::Pipe& fromBinaries) const
 {
-  auto ph = Poco::Process::launch(executable, vector<string>{}, &toBinaries, &fromBinaries, nullptr);
+  auto ph = start_executable_process(executable, vector<string>{}, m_dirPath, &toBinaries, &fromBinaries);
   Poco::PipeOutputStream toBinariesStream(toBinaries);
   Poco::PipeInputStream fromBinariesStream(fromBinaries);
   toBinariesStream << in.content().c_str();
@@ -210,7 +223,7 @@ bool grader_base::run_test_cmd_std(const subtest& in, const subtest& out,
   stringstream argsStream;
   argsStream << in.content().c_str();
   vector<string> args{istream_iterator<string>(argsStream), istream_iterator<string>()};
-  auto ph = Poco::Process::launch(executable, args, nullptr, &fromBinaries, nullptr);
+  auto ph = start_executable_process(executable, args, m_dirPath, nullptr, &fromBinaries);
   Poco::PipeInputStream fromBinariesStream(fromBinaries);
   
   return evaluate_output_stdin(fromBinariesStream, out, ph);
@@ -221,7 +234,7 @@ bool grader_base::run_test_file_std(const subtest& in, const subtest& out,
 {
   // Fill args and launch executable
   vector<string> args{create_file_input(in)};
-  auto ph = Poco::Process::launch(executable, args, m_dirPath, nullptr, &fromBinaries, nullptr);
+  auto ph = start_executable_process(executable, args, m_dirPath, nullptr, &fromBinaries);
   Poco::PipeInputStream fromBinariesStream(fromBinaries);
   
   return evaluate_output_stdin(fromBinariesStream, out, ph);
@@ -233,7 +246,7 @@ bool grader_base::run_test_std_file(const subtest& in, const subtest& out, const
   string path = out.path().c_str();
   if (!boost::filesystem::path(path).is_relative()) throw runtime_error("Absolute paths are not supported!");
   auto absolutePath = m_dirPath + '/' + path;
-  auto ph = Poco::Process::launch(executable, vector<string>{move(path)}, m_dirPath, &toBinaries, nullptr, nullptr);
+  auto ph = start_executable_process(executable, vector<string>{move(path)}, m_dirPath, &toBinaries, nullptr);
   Poco::PipeOutputStream toBinariesStream(toBinaries);
   toBinariesStream << in.content().c_str();
   toBinariesStream.close();
@@ -253,7 +266,7 @@ bool grader_base::run_test_cmd_file(const subtest& in, const subtest& out, const
   stringstream argsStream;
   argsStream << in.content().c_str();
   args.insert(args.begin() + 1, istream_iterator<string>(argsStream), istream_iterator<string>());
-  auto ph = Poco::Process::launch(executable, args, m_dirPath, nullptr, nullptr, nullptr);
+  auto ph = start_executable_process(executable, args, m_dirPath, nullptr, nullptr);
   
   return evaluate_output_file(absolutePath, out, ph);
 }
@@ -263,9 +276,9 @@ bool grader_base::run_test_file_file(const subtest& in, const subtest& out, cons
   vector<string> args{create_file_input(in)};
   string path = out.path().c_str();
   if (!boost::filesystem::path(path).is_relative()) throw runtime_error("Absolute paths are not supported!");
-  auto absolutePath = dir_path() + '/' + path;
+  auto absolutePath = m_dirPath + '/' + path;
   args.push_back(move(path));
-  auto ph = Poco::Process::launch(executable, args, dir_path(), nullptr, nullptr, nullptr);
+  auto ph = start_executable_process(executable, args, m_dirPath, nullptr, nullptr);
   
   return evaluate_output_file(absolutePath, out, ph);
 }
@@ -302,4 +315,10 @@ bool grader_base::evaluate_output_file(const string& absolutePath, const subtest
   string resStr{istreambuf_iterator<char>(result), istreambuf_iterator<char>()};
   boost::trim(resStr);
   return resStr == out.content().c_str();
+}
+
+Poco::ProcessHandle grader_base::start_executable_process(const string& executable, const vector< string >& args, const string& workingDir, 
+                                                          Poco::Pipe* toBinaries, Poco::Pipe* fromBinaries) const
+{
+  return Poco::Process::launch(executable, args, workingDir, toBinaries, fromBinaries, nullptr);
 }

@@ -85,7 +85,7 @@ void task::run_all()
                + " Library path: " + libPath + ".");
     throw runtime_error(msg.c_str());
   }
-  graderObj->initialize(this, configuration::get_interpreter_path(graderInfo));
+  graderObj->initialize(this);
   
   // Compile source
   set_state(task::state::COMPILING);

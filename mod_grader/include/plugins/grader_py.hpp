@@ -15,11 +15,13 @@ public:
 protected:
     virtual const char* name() const;
     virtual bool is_compilable() const;
-    virtual std::string compiler() const;
+    virtual const char* compiler() const;
     virtual void compiler_flags(std::string&) const;
-    virtual std::string compiler_filename_flag() const;
-    virtual bool is_compiling_from_stdin() const;
+    virtual const char* compiler_filename_flag() const;
+    virtual bool should_write_src_file() const;
     virtual bool is_interpreted() const;
+    virtual Poco::ProcessHandle start_executable_process(const std::string& executable, const std::vector< std::string >& args, 
+                                                         const std::string& workingDir, Poco::Pipe* toBinaries, Poco::Pipe* fromBinaries) const;
 };
 
 REGISTER_DYNAMIC_ST(grader_py)

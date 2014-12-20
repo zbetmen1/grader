@@ -1,0 +1,8 @@
+<test memory="67108864" time="4000" language="py">
+  <input type="std">
+    Glupa test linija
+  </input>
+  <output type="std">
+    Glupa test linija
+  </output>
+</test>

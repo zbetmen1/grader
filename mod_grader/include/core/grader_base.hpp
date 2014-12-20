@@ -50,7 +50,6 @@ namespace grader
     std::string m_dirPath;
     std::string m_executablePath;
     std::string m_sourcePath;
-    std::string m_interpreterPath;
   public:
     // Grader is DefaultConstructible
     grader_base();
@@ -65,14 +64,14 @@ namespace grader
     
     // Grader is base class so destructor is virtual and we must have initialization method (cause of shared library loading)
     virtual ~grader_base();
-    void initialize(task* t, const std::string& interpreterPath = "");
+    void initialize(task* t);
     
     // Informations about particular grader
     virtual const std::vector<const char*>& extensions() const = 0;
     virtual const char* language() const = 0;
     
     // API
-    bool compile(std::string& compileErr) const;
+    virtual bool compile(std::string& compileErr) const;
     virtual bool run_test(const test& t) const;
     
     // Implementing object's virtual function so graders can be created from shared libraries in runtime
@@ -80,11 +79,16 @@ namespace grader
   protected:
     // Each grader needs to provide these informations so base class can compile sources and run executables
     virtual bool is_compilable() const = 0;
-    virtual std::string compiler() const = 0;
+    virtual const char* compiler() const = 0;
     virtual void compiler_flags(std::string& flags) const = 0;
-    virtual std::string compiler_filename_flag() const = 0;
-    virtual bool is_compiling_from_stdin() const = 0;
-    virtual bool is_interpreted() const = 0;
+    virtual const char* compiler_filename_flag() const = 0;
+    virtual const char* compiler_stdin_flag() const { return ""; }
+    virtual bool should_write_src_file() const = 0;
+    virtual const char* executable_extension() const { return ""; };
+    
+    // Different languages require different ways to start process (for example Java uses 'java StartMe.class')
+    virtual Poco::ProcessHandle start_executable_process(const std::string& executable, const std::vector< std::string >& args, 
+                                                         const std::string& workingDir, Poco::Pipe* toBinaries, Poco::Pipe* fromBinaries) const;
     
   private:
     // Utilities

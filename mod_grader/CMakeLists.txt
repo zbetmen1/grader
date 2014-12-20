@@ -33,4 +33,15 @@ add_custom_command(TARGET mod_grader POST_BUILD
 # Compile grader_c
 add_library(grader_c SHARED src/plugins/grader_c.cpp)
 target_link_libraries(grader_c grader)
+
+# Compile grader_cpp
+add_library(grader_cpp SHARED src/plugins/grader_cpp.cpp)
+target_link_libraries(grader_cpp grader)
+
+# Compile python grader
+add_library(grader_py SHARED src/plugins/grader_py.cpp)
+target_link_libraries(grader_py grader ${Boost_LIBRARIES})
                                                 
+# Compile grader_cpp11
+add_library(grader_cpp11 SHARED src/plugins/grader_cpp11.cpp)
+target_link_libraries(grader_cpp11 grader)
