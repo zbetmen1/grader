@@ -183,25 +183,17 @@ bool grader_base::run_test(const test& t) const
   else if (subtest::subtest_i_o::FILE == in.io() && subtest::subtest_i_o::STD == out.io())
     return run_test_file_std(in, out, executable, fromBinaries);
   
+  // Case when input is stdin and output goes to file
   else if (subtest::subtest_i_o::STD == in.io() && subtest::subtest_i_o::FILE == out.io())
-  {
-    string path = out.path().c_str();
-    if (!boost::filesystem::path(path).is_relative()) throw runtime_error("Absolute paths are not supported!");
-    auto absolutePath = dir_path() + '/' + path;
-    auto ph = Poco::Process::launch(executable, vector<string>{move(path)}, dir_path(), &toBinaries, nullptr, nullptr);
-    Poco::PipeOutputStream toBinariesStream(toBinaries);
-    toBinariesStream << in.content().c_str();
-    toBinariesStream.close();
-    
-    int retCode = ph.wait();
-    if (0 != retCode) return false;
-    
-    ifstream result(absolutePath);
-    if (!result.is_open()) throw runtime_error("Failed to open file with result content!");
-    string resStr{istreambuf_iterator<char>(result), istreambuf_iterator<char>()};
-    boost::trim(resStr);
-    return resStr == out.content().c_str();
-  }
+    return run_test_std_file(in, out, executable, toBinaries);
+  
+  // Case when input comes as cmd line arguments and output goes to file
+  else if (subtest::subtest_i_o::CMD == in.io() && subtest::subtest_i_o::FILE == out.io())
+    return run_test_cmd_file(in, out, executable);
+  
+  // Case when input is file and output goes to file
+  else if (subtest::subtest_i_o::FILE == in.io() && subtest::subtest_i_o::FILE == out.io())
+    return run_test_file_file(in, out, executable);
   return false;
 }
 
@@ -214,13 +206,7 @@ bool grader_base::run_test_std_std(const subtest& in, const subtest& out, const 
   toBinariesStream << in.content().c_str();
   toBinariesStream.close();
   
-  int retCode = ph.wait();
-  if (0 != retCode) return false;
-  stringstream result;
-  result << fromBinariesStream.rdbuf();
-  auto resStr = move(result.str());
-  boost::trim(resStr);
-  return resStr == out.content().c_str();
+  return evaluate_output_stdin(fromBinariesStream, out, ph);
 }
 
 bool grader_base::run_test_cmd_std(const subtest& in, const subtest& out, 
@@ -232,30 +218,76 @@ bool grader_base::run_test_cmd_std(const subtest& in, const subtest& out,
   auto ph = Poco::Process::launch(executable, args, nullptr, &fromBinaries, nullptr);
   Poco::PipeInputStream fromBinariesStream(fromBinaries);
   
-  int retCode = ph.wait();
-  if (0 != retCode) return false;
-  stringstream result;
-  result << fromBinariesStream.rdbuf();
-  auto resStr = move(result.str());
-  boost::trim(resStr);
-  return resStr == out.content().c_str();
+  return evaluate_output_stdin(fromBinariesStream, out, ph);
 }
 
 bool grader_base::run_test_file_std(const subtest& in, const subtest& out, 
                                     const string& executable, Poco::Pipe& fromBinaries) const
 {
-  // First check that path is relative, write content to disk and add it as cmd line argument
+  // Fill args and launch executable
+  vector<string> args{create_file_input(in)};
+  auto ph = Poco::Process::launch(executable, args, dir_path(), nullptr, &fromBinaries, nullptr);
+  Poco::PipeInputStream fromBinariesStream(fromBinaries);
+  
+  return evaluate_output_stdin(fromBinariesStream, out, ph);
+}
+
+bool grader_base::run_test_std_file(const subtest& in, const subtest& out, const string& executable, 
+                                   Poco::Pipe& toBinaries) const
+{
+  string path = out.path().c_str();
+  if (!boost::filesystem::path(path).is_relative()) throw runtime_error("Absolute paths are not supported!");
+  auto absolutePath = dir_path() + '/' + path;
+  auto ph = Poco::Process::launch(executable, vector<string>{move(path)}, dir_path(), &toBinaries, nullptr, nullptr);
+  Poco::PipeOutputStream toBinariesStream(toBinaries);
+  toBinariesStream << in.content().c_str();
+  toBinariesStream.close();
+  
+  return evaluate_output_file(absolutePath, out, ph);
+}
+
+bool grader_base::run_test_cmd_file(const subtest& in, const subtest& out, const string& executable) const
+{
+  // Check path first
+  string path = out.path().c_str();
+  if (!boost::filesystem::path(path).is_relative()) throw runtime_error("Absolute paths are not supported!");
+  auto absolutePath = dir_path() + '/' + path;
+  
+  // Fill args list
+  vector<string> args{move(path)};
+  stringstream argsStream;
+  argsStream << in.content().c_str();
+  args.insert(args.begin() + 1, istream_iterator<string>(argsStream), istream_iterator<string>());
+  auto ph = Poco::Process::launch(executable, args, dir_path(), nullptr, nullptr, nullptr);
+  
+  return evaluate_output_file(absolutePath, out, ph);
+}
+
+bool grader_base::run_test_file_file(const subtest& in, const subtest& out, const string& executable) const
+{
+  vector<string> args{create_file_input(in)};
+  string path = out.path().c_str();
+  if (!boost::filesystem::path(path).is_relative()) throw runtime_error("Absolute paths are not supported!");
+  auto absolutePath = dir_path() + '/' + path;
+  args.push_back(move(path));
+  auto ph = Poco::Process::launch(executable, args, dir_path(), nullptr, nullptr, nullptr);
+  
+  return evaluate_output_file(absolutePath, out, ph);
+}
+
+vector<string> grader_base::create_file_input(const subtest& in) const
+{
   string path = in.path().c_str();
   if (!boost::filesystem::path(path).is_relative()) throw std::runtime_error("Absolute paths are forbidden.");
   string absolutePath = dir_path() + '/' + path;
   write_to_disk(absolutePath, in.content().c_str());
   boost::filesystem::permissions(absolutePath, boost::filesystem::add_perms | boost::filesystem::others_read);
-  vector<string> args{move(path)};
-  
-  // Launch executable
-  auto ph = Poco::Process::launch(executable, args, dir_path(), nullptr, &fromBinaries, nullptr);
-  Poco::PipeInputStream fromBinariesStream(fromBinaries);
-  
+  return move(vector<string>{move(path)});
+}
+
+bool grader_base::evaluate_output_stdin(Poco::PipeInputStream& fromBinariesStream, const subtest& out, 
+                                        const Poco::ProcessHandle& ph) const
+{
   int retCode = ph.wait();
   if (0 != retCode) return false;
   stringstream result;
@@ -265,3 +297,14 @@ bool grader_base::run_test_file_std(const subtest& in, const subtest& out,
   return resStr == out.content().c_str();
 }
 
+bool grader_base::evaluate_output_file(const string& absolutePath, const subtest& out, const Poco::ProcessHandle& ph) const
+{
+  int retCode = ph.wait();
+  if (0 != retCode) return false;
+  
+  ifstream result(absolutePath);
+  if (!result.is_open()) throw runtime_error("Failed to open file with result content!");
+  string resStr{istreambuf_iterator<char>(result), istreambuf_iterator<char>()};
+  boost::trim(resStr);
+  return resStr == out.content().c_str();
+}

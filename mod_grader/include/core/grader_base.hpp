@@ -39,6 +39,7 @@
 namespace Poco
 {
   class Pipe;
+  class PipeInputStream;
 }
 
 namespace grader
@@ -73,7 +74,7 @@ namespace grader
     // Implementing object's virtual function so graders can be created from shared libraries in runtime
     virtual const char* name() const { std::string gr("grader_"); return (gr + language()).c_str(); }
   protected:
-    // Each grader needs to provide these informations so base class can compile sources
+    // Each grader needs to provide these informations so base class can compile sources and run executables
     virtual bool is_compilable() const = 0;
     virtual std::string compiler() const = 0;
     virtual void compiler_flags(std::string& flags) const = 0;
@@ -97,6 +98,17 @@ namespace grader
                                    const std::string& executable, Poco::Pipe& fromBinaries) const;
     bool run_test_file_std(const subtest& in, const subtest& out, 
                                    const std::string& executable, Poco::Pipe& fromBinaries) const;
+    bool run_test_std_file(const subtest& in, const subtest& out, const std::string& executable, 
+                                   Poco::Pipe& toBinaries) const;
+    bool run_test_cmd_file(const subtest& in, const subtest& out, const std::string& executable) const;
+    
+    bool run_test_file_file(const subtest& in, const subtest& out, const std::string& executable) const;
+    
+    std::vector<std::string> create_file_input(const subtest& in) const;
+    
+    bool evaluate_output_stdin(Poco::PipeInputStream& fromBinariesStream, const grader::subtest& out, 
+                               const Poco::ProcessHandle& ph) const;
+    bool evaluate_output_file(const std::string& absolutePath, const subtest& out, const Poco::ProcessHandle& ph) const;
                                    
   };
 }
