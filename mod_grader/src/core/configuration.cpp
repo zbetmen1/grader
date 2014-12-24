@@ -7,9 +7,18 @@
 // BOOST headers
 #include <boost/property_tree/xml_parser.hpp>
 #include <boost/property_tree/ptree.hpp>
+#include <boost/log/core.hpp>
+#include <boost/log/trivial.hpp>
+#include <boost/log/expressions.hpp>
+#include <boost/log/sinks/text_file_backend.hpp>
+#include <boost/log/utility/setup/file.hpp>
+#include <boost/log/utility/setup/common_attributes.hpp>
+#include <boost/log/sources/severity_logger.hpp>
+#include <boost/log/sources/record_ostream.hpp>
 
 using namespace std;
 using namespace boost::property_tree;
+using namespace boost::log;
 
 namespace grader
 {
@@ -27,10 +36,14 @@ const string configuration::SHMEM_SIZE = "SHMEM_SIZE";
 const string configuration::LIB_DIR = "LIB_DIR";
 const string configuration::SHELL = "SHELL";
 const string configuration::SHELL_CMD_FLAG = "SHELL_CMD_FLAG";
+const string configuration::LOG_DIR= "LOG_DIR";
+const string configuration::LOG_FILE= "LOG_FILE";
+const string configuration::LOG_LEVEL = "LOG_LEVEL";
 
 configuration::configuration()
 {
   load_config();
+  init_logging();
 }
 
 configuration::map_type::const_iterator configuration::get(const std::string& key) const
@@ -74,6 +87,44 @@ void configuration::load_config()
   
   // Mark that configuration is loaded
   s_loaded = true;
+}
+
+void configuration::init_logging() const
+{
+  add_file_log(keywords::file_name = get(LOG_DIR)->second + '/' + get(LOG_FILE)->second, 
+               keywords::rotation_size = 10 * 1024 * 1024,
+               keywords::time_based_rotation = sinks::file::rotation_at_time_point(0, 0, 0),
+               keywords::format = "[%TimeStamp%]: %Message%"
+              );
+  string logLevel = get(LOG_LEVEL)->second;
+  if ("TRACE" == logLevel)
+  {
+    core::get()->set_filter(trivial::severity >= trivial::trace);
+  }
+  else if ("DEBUG" == logLevel)
+  {
+    core::get()->set_filter(trivial::severity >= trivial::debug);
+  }
+  else if ("INFO" == logLevel)
+  {
+    core::get()->set_filter(trivial::severity >= trivial::info);
+  }
+  else if ("WARNING" == logLevel)
+  {
+    core::get()->set_filter(trivial::severity >= trivial::warning);
+  }
+  else if ("ERROR" == logLevel)
+  {
+    core::get()->set_filter(trivial::severity >= trivial::error);
+  }
+  else if ("FATAL" == logLevel)
+  {
+    core::get()->set_filter(trivial::severity >= trivial::fatal);
+  }
+  else 
+  {
+    core::get()->set_filter(trivial::severity >= trivial::info);
+  }
 }
 
 const configuration& configuration::instance()

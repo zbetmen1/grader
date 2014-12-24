@@ -1,11 +1,22 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <config>
-  <SHMEM_NAME>Grader0</SHMEM_NAME>
-  <SHMEM_SIZE>65535</SHMEM_SIZE>
-  <BASE_DIR>/home/zbetmen/students</BASE_DIR>
-  <LIB_DIR>/home/zbetmen/Documents/grader/mod_grader/build</LIB_DIR>
+  <!--Shell configuration-->
   <SHELL>bash</SHELL>
   <SHELL_CMD_FLAG>-c</SHELL_CMD_FLAG>
+  
+  <!--Interprocess memory configuration-->
+  <SHMEM_NAME>grader</SHMEM_NAME>
+  <SHMEM_SIZE>134217728</SHMEM_SIZE>
+  
+  <!--Important directories and files-->
+  <BASE_DIR>/home/zbetmen/students</BASE_DIR>
+  <LIB_DIR>/home/zbetmen/Documents/grader/mod_grader/build</LIB_DIR>
+  <LOG_DIR>/var/log/grader</LOG_DIR>
+  
+  <!--Log stuff (except log dir is in important directories section)-->
+  <LOG_FILE>mod_grader%N.log</LOG_FILE>
+  <LOG_LEVEL>DEBUG</LOG_LEVEL>
+  <LOG_LEVEL_DEFAULT>WARNING</LOG_LEVEL_DEFAULT>
   
   <!--Suppoted languages-->
   <LANGUAGE>
@@ -23,8 +34,6 @@
     <GRADER>grader_cpp11</GRADER>
     <LIB>libgrader_cpp11.so</LIB>
   </LANGUAGE>
-  
-  <!-- Python is TODO grader! -->
   <LANGUAGE>
     <NAME>py</NAME>
     <GRADER>grader_py</GRADER>

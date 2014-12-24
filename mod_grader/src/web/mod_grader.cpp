@@ -2,6 +2,7 @@
 #include "mod_grader.hpp"
 #include "request_parser.hpp"
 #include "task.hpp"
+#include "configuration.hpp"
 
 // STL headers
 #include <cstring>
@@ -10,10 +11,15 @@
 #include <fstream>
 #include <cerrno>
 #include <string>
+#include <unistd.h>
 
 // BOOST headers
 #include <boost/algorithm/string.hpp>
 #include <boost/interprocess/sync/interprocess_mutex.hpp>
+#include <boost/filesystem.hpp>
+
+// Apache headers
+#include <apr_tables.h>
 
 using namespace std;
 using namespace grader;
@@ -32,13 +38,29 @@ EXTERN_C int grader_handler(request_rec* r)
   // is GET assume that clients are asking for grading results
   if (r->method_number == M_GET)
   {
-    // TODO: Supply grading results
-    ap_set_content_type(r, "text/html");
-    ap_rprintf(r, "Results seeking request!\n");
+    const char* taskIdWithExt = boost::filesystem::path(r->filename).filename().c_str();
+    char* taskId = apr_pstrdup(r->pool, taskIdWithExt);
+    auto len = strlen(taskId);
+    taskId[len - 6] = '\0';
+    if (task::is_valid_task_name(taskId))
+    {
+      auto foundTask = shm_find<task>(taskId);
+      if (foundTask)
+      {
+        ap_rprintf(r, "%s", foundTask->status());
+      }
+      else 
+      {
+        ap_rprintf(r, "{ \"STATE\" : \"NOT_FOUND\" }");
+      }
+    }
+    else 
+    {
+      ap_rprintf(r, "{ \"STATE\" : \"INVALID_TASK_NAME\" }");
+    }
   }
   else if (r->method_number == M_POST)
   {
-    // TODO: Grade files provided by POST method
     request_parser parser(r);
     request_parser::parsed_data data;
     parser.parse(data);
@@ -48,16 +70,46 @@ EXTERN_C int grader_handler(request_rec* r)
                                       get<request_parser::FILE_CONTENT_LEN>(data),
                                       get<request_parser::TESTS_CONTENT>(data),
                                       get<request_parser::TESTS_CONTENT_LEN>(data));
-    newTask->run_all();
-    ap_rprintf(r, "%s \n", newTask->status().c_str());
+    int pid = fork();
+    
+    // Child process
+    if (0 == pid)
+    {
+      newTask->run_all();
+      exit(EXIT_SUCCESS);
+    }
+    else 
+    { // Parent process
+      ap_rprintf(r, "%s", newTask->id());
+    }
   }
   else if (r->method_number == M_DELETE)
   {
-    
+    const char* taskIdWithExt = boost::filesystem::path(r->filename).filename().c_str();
+    char* taskId = apr_pstrdup(r->pool, taskIdWithExt);
+    auto len = strlen(taskId);
+    taskId[len - 6] = '\0';
+    if (task::is_valid_task_name(taskId))
+    {
+      auto foundTask = shm_find<task>(taskId);
+      if (foundTask && (task::state::FINISHED == foundTask->get_state() ||
+                        task::state::COMPILE_ERROR == foundTask->get_state()))
+      {
+        shm_destroy<task>(taskId);
+        ap_rprintf(r, "{ \"STATE\" : \"DESTROYED\" }");
+      }
+      else 
+      {
+        ap_rprintf(r, "{ \"STATE\" : \"NOT_FOUND\" }");
+      }
+    }
+    else 
+    {
+      ap_rprintf(r, "{ \"STATE\" : \"INVALID_TASK_NAME\" }");
+    }
   }
   else 
   {
-    // TODO: Handle this error request!
     return (HTTP_NOT_FOUND);
   }
   return OK;

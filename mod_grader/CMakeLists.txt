@@ -9,8 +9,9 @@ include_directories(include/core include/daemon/ include/plugins/ include/utils/
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -Wall -Werror -Wextra -g")
 
 # Create grader shared library
-find_package(Boost 1.54 COMPONENTS filesystem system iostreams thread REQUIRED)
+find_package(Boost 1.54 COMPONENTS log log_setup thread date_time filesystem system iostreams REQUIRED)
 include_directories( ${Boost_INCLUDE_DIR} )
+add_definitions(-DBOOST_LOG_DYN_LINK) # for stupid log library
 
 find_library(POCO_FOUNDATION PocoFoundation REQUIRED)
 

@@ -34,6 +34,7 @@ namespace grader
     // Types and constants
     using test = std::pair<subtest, subtest>;
     using test_attributes = std::tuple<std::size_t, std::size_t, std::string>;
+    enum class state : unsigned char { WAITING, COMPILING, COMPILE_ERROR, RUNNING, FINISHED };
     
     // Boost types 
     using shm_char_allocator = boost::interprocess::allocator<char, boost::interprocess::managed_shared_memory::segment_manager>;
@@ -46,8 +47,6 @@ namespace grader
     using mutex_type = boost::interprocess::interprocess_mutex;
 
   private:
-    // Types and constants
-    enum class state : unsigned char { WAITING, COMPILING, COMPILE_ERROR, RUNNING, FINISHED };
     
     // Fields
     shm_string m_fileName; /**< Name of submitted file. */
@@ -79,12 +78,14 @@ namespace grader
     const char* id() const { return m_id; }
     
     // API
-    std::string status() const; // Must be interprocess safe
+    const char* status() const; // Must be interprocess safe
+    state get_state() const;
     void run_all();
 
     // Static API
     static task* create_task(const char* fileName, std::size_t fnLen, const char* fileContent, std::size_t fcLen,
                              const char* testsContent, std::size_t testsCLen);
+    static bool is_valid_task_name(const char* name);
   private:
     static test_attributes parse_tests(const char* testsContent, std::size_t testsCLen, grader::task::shm_test_vector& tests);
     

@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <utility>
 #include <sstream>
+#include <string>
 
 // BOOST headers
 #include <boost/interprocess/managed_shared_memory.hpp>
@@ -20,6 +21,8 @@
 
 #include <boost/property_tree/xml_parser.hpp>
 #include <boost/property_tree/ptree.hpp>
+
+#include <boost/filesystem.hpp>
 
 using namespace std;
 using namespace grader;
@@ -34,6 +37,7 @@ m_memoryBytes(memoryBytes), m_timeMS(timeMS), m_state(state::WAITING), m_status(
   // Copy file name
   m_fileName.reserve(fnLen + 1);
   m_fileName.insert(m_fileName.begin(), fileName, fileName + fnLen);
+  m_fileName = boost::filesystem::path(m_fileName.c_str()).filename().c_str();
   
   // Copy file content
   m_fileContent.reserve(fcLen + 1);
@@ -94,7 +98,7 @@ void task::run_all()
   if (!graderObj->compile(compilationErr))
   {
     transform(compilationErr.begin(), compilationErr.end(), compilationErr.begin(), 
-              [=](char x) { return ('\n'== x) ? ' ' : x;});
+              [=](char x) { return ('\n'== x || '\r' == x) ? ' ' : x;});
     formater << "{\n\t\"STATE\" : \"COMPILE_ERROR\",\n\t\"MESSAGE\" : \"" << compilationErr << "\"\n}";
     auto jsonStr = move(formater.str());
     m_status.insert(m_status.begin(), jsonStr.cbegin(), jsonStr.cend());
@@ -121,32 +125,26 @@ void task::run_all()
   }
   formater << "\t\"TEST" << (testResSize - 1) << "\" : " << to_string(testResults[testResSize - 1]) << " \n}";
   auto jsonStr = move(formater.str());
-  m_status.insert(m_status.begin(), jsonStr.cbegin(), jsonStr.cend());
+  m_status = jsonStr.c_str();
   set_state(task::state::FINISHED);
 }
 
-std::string task::status() const
+const char* task::status() const
 {
   boost::interprocess::scoped_lock<mutex_type> lock(s_lock);
-  std::string retval;
   switch(m_state)
   {
     case state::WAITING:
-      retval = "{ \"STATE\" : \"WAITING\" }";
-      return move(retval);
+      return "{ \"STATE\" : \"WAITING\" }";
     case state::COMPILING:
-      retval = "{ \"STATE\" : \"COMPILING\" }";
-      return move(retval);
+      return "{ \"STATE\" : \"COMPILING\" }";
     case state::RUNNING:
-      retval = "{ \"STATE\" : \"RUNNING\" }";
-      return move(retval);
+      return "{ \"STATE\" : \"RUNNING\" }";
     case state::FINISHED:
     case state::COMPILE_ERROR:
-      retval.reserve(m_status.size()); // yet written to m_status, we need to lock this section
-      copy(m_status.cbegin(), m_status.cend(), retval.begin());
-      return move(retval);
+      return m_status.c_str();
   }
-  return move(retval);
+  return "";
 }
 
 task* task::create_task(const char* fileName, std::size_t fnLen, const char* fileContent, 
@@ -161,6 +159,15 @@ task* task::create_task(const char* fileName, std::size_t fnLen, const char* fil
                                                                       get<0>(memTimeReq), get<1>(memTimeReq),
                                                                       get<2>(memTimeReq)
                                                                       );
+}
+
+bool task::is_valid_task_name(const char* name)
+{
+   stringstream interpreter;
+   boost::uuids::uuid tmp;
+   return interpreter<<name && 
+           interpreter>>tmp && 
+           interpreter.get() == stringstream::traits_type::eof();
 }
 
 task::test_attributes task::parse_tests(const char* testsContent, std::size_t testsCLen, task::shm_test_vector& tests)
@@ -225,4 +232,10 @@ void task::set_state(task::state newState)
 {
   boost::interprocess::scoped_lock<mutex_type> lock(s_lock);
   m_state = newState;
+}
+
+task::state task::get_state() const
+{
+  boost::interprocess::scoped_lock<mutex_type> lock(s_lock);
+  return m_state;
 }

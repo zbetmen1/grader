@@ -56,12 +56,15 @@ namespace grader
     static const std::string PATH_TO_CONFIG_FILE;
     
     // Runtime parameters
-    static const std::string SHMEM_NAME;
-    static const std::string BASE_DIR;
-    static const std::string SHMEM_SIZE;
-    static const std::string LIB_DIR;
     static const std::string SHELL;
     static const std::string SHELL_CMD_FLAG;
+    static const std::string SHMEM_NAME;
+    static const std::string SHMEM_SIZE;
+    static const std::string BASE_DIR;
+    static const std::string LIB_DIR;
+    static const std::string LOG_DIR;
+    static const std::string LOG_FILE;
+    static const std::string LOG_LEVEL;
   private:
     map_type m_conf;
     std::unordered_set<language> m_languages;
@@ -86,9 +89,23 @@ namespace grader
     static const std::string& get_lib_name(const grader_info& grInfo);
   private:
     void load_config();
+    void init_logging() const;
   };
   
   boost::interprocess::managed_shared_memory& shm();
+  
+  template <typename T>
+  void shm_destroy(const char* name)
+  {
+    shm().destroy<T>(name);
+  }
+  
+  template <typename T>
+  T* shm_find(const char* name)
+  {
+    auto found = shm().find<T>(name);
+    return 0 != found.second ? found.first : nullptr;
+  }
   
   extern "C" const void* get_configuration();
 }
