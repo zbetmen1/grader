@@ -1,6 +1,9 @@
 #ifndef CONFIGURATION_HPP
 #define CONFIGURATION_HPP
 
+// Project headers
+#include "grader_log.hpp"
+
 // STL headers
 #include <unordered_map>
 #include <string>
@@ -80,16 +83,16 @@ namespace grader
     configuration& operator=(configuration&&) = delete;
     
     // Singleton's entry point
-    static const configuration& instance();
+    static const configuration& instance() noexcept;
     
     // API
-    map_type::const_iterator get(const std::string& key) const;
-    grader_info get_grader(const std::string& languageName) const;
-    static const std::string& get_grader_name(const grader_info& grInfo);
-    static const std::string& get_lib_name(const grader_info& grInfo);
+    map_type::const_iterator get(const std::string& key) const noexcept;
+    map_type::const_iterator invalid() const noexcept { return m_conf.cend(); }
+    grader_info get_grader(const std::string& languageName) const noexcept;
+    static const std::string& get_grader_name(const grader_info& grInfo) noexcept;
+    static const std::string& get_lib_name(const grader_info& grInfo) noexcept;
   private:
     void load_config();
-    void init_logging() const;
   };
   
   boost::interprocess::managed_shared_memory& shm();
@@ -106,8 +109,6 @@ namespace grader
     auto found = shm().find<T>(name);
     return 0 != found.second ? found.first : nullptr;
   }
-  
-  extern "C" const void* get_configuration();
 }
 
 #endif // CONFIGURATION_HPP

@@ -3,6 +3,7 @@
 #include "request_parser.hpp"
 #include "task.hpp"
 #include "configuration.hpp"
+#include "grader_log.hpp"
 
 // STL headers
 #include <cstring>
@@ -29,19 +30,27 @@ EXTERN_C void register_hooks(apr_pool_t* /*pool*/)
   ap_hook_handler(grader_handler, NULL, NULL, APR_HOOK_LAST);
 }
 
+char* task_id_from_url(request_rec* r)
+{
+  boost::filesystem::path p(r->filename);
+  const char* taskIdWithExt = p.filename().c_str();
+  char* taskId = apr_pstrdup(r->pool, taskIdWithExt);
+  auto len = strlen(taskId);
+  taskId[len - 6] = '\0';
+  return taskId;
+}
+
 EXTERN_C int grader_handler(request_rec* r)
 {
   if (!r->handler || strcmp(r->handler, "grader")) return (DECLINED);
   
-  // Dispatch on type of request, when request type is POST
-  // assume that we have new grading to do, but if request type
-  // is GET assume that clients are asking for grading results
+  /* Dispatch on type of request, when request type is POST
+   assume that we have new grading to do, but if request type
+   is GET assume that clients are asking for grading results */
   if (r->method_number == M_GET)
   {
-    const char* taskIdWithExt = boost::filesystem::path(r->filename).filename().c_str();
-    char* taskId = apr_pstrdup(r->pool, taskIdWithExt);
-    auto len = strlen(taskId);
-    taskId[len - 6] = '\0';
+    LOG(apr_pstrcat(r->pool, "Accepted request; method: GET address: ", r->filename, nullptr), grader::DEBUG);
+    char* taskId = task_id_from_url(r);
     if (task::is_valid_task_name(taskId))
     {
       auto foundTask = shm_find<task>(taskId);
@@ -61,6 +70,7 @@ EXTERN_C int grader_handler(request_rec* r)
   }
   else if (r->method_number == M_POST)
   {
+    LOG(apr_pstrcat(r->pool, "Accepted request; method: POST address: ", r->filename, nullptr), grader::DEBUG);
     request_parser parser(r);
     request_parser::parsed_data data;
     parser.parse(data);
@@ -70,6 +80,7 @@ EXTERN_C int grader_handler(request_rec* r)
                                       get<request_parser::FILE_CONTENT_LEN>(data),
                                       get<request_parser::TESTS_CONTENT>(data),
                                       get<request_parser::TESTS_CONTENT_LEN>(data));
+    LOG(apr_pstrcat(r->pool, "Created task with id: ", newTask->id(), nullptr), grader::DEBUG);
     int pid = fork();
     
     // Child process
@@ -85,10 +96,8 @@ EXTERN_C int grader_handler(request_rec* r)
   }
   else if (r->method_number == M_DELETE)
   {
-    const char* taskIdWithExt = boost::filesystem::path(r->filename).filename().c_str();
-    char* taskId = apr_pstrdup(r->pool, taskIdWithExt);
-    auto len = strlen(taskId);
-    taskId[len - 6] = '\0';
+    LOG(apr_pstrcat(r->pool, "Accepted request; method: DELETE address: ", r->filename, nullptr), grader::DEBUG);
+    char* taskId = task_id_from_url(r);
     if (task::is_valid_task_name(taskId))
     {
       auto foundTask = shm_find<task>(taskId);
@@ -110,6 +119,7 @@ EXTERN_C int grader_handler(request_rec* r)
   }
   else 
   {
+    LOG(apr_pstrcat(r->pool, "Unsupported request method; address: ", r->filename, nullptr), grader::WARNING);
     return (HTTP_NOT_FOUND);
   }
   return OK;

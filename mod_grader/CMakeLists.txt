@@ -16,7 +16,7 @@ add_definitions(-DBOOST_LOG_DYN_LINK) # for stupid log library
 find_library(POCO_FOUNDATION PocoFoundation REQUIRED)
 
 add_library(grader SHARED src/core/task.cpp src/core/grader_base.cpp src/core/subtest.cpp src/core/configuration.cpp # Core
-                          src/utils/object.cpp src/utils/register_creators.cpp src/utils/shared_lib.cpp)             # Utils
+                          src/utils/object.cpp src/utils/register_creators.cpp src/utils/shared_lib.cpp src/utils/grader_log.cpp)             # Utils
 target_link_libraries(grader ${Boost_LIBRARIES} ${POCO_FOUNDATION})
 
 # Compile Apache module

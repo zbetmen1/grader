@@ -23,6 +23,7 @@
 // Project headers
 #include "grader_base.hpp"
 #include "configuration.hpp"
+#include "grader_log.hpp"
 
 // STL headers
 #include <utility>
@@ -54,12 +55,30 @@ void grader_base::initialize(task* t)
   m_dirPath = dir_path();
   m_executablePath = binaries_path();
   m_sourcePath = source_path() + executable_extension();
-  boost::filesystem::create_directories(m_dirPath);
+  boost::system::error_code code;
+  boost::filesystem::create_directories(m_dirPath, code);
+  if (boost::system::errc::success != code)
+  {
+    stringstream logmsg;
+    logmsg << "Error when creating directory: " << m_dirPath 
+           << " Message: " << code.message()
+           << " Id: " << m_task->id();
+    LOG(logmsg.str(), grader::ERROR);
+  }
 }
 
 grader_base::~grader_base()
 {
-  boost::filesystem::remove_all(m_dirPath);
+  boost::system::error_code code;
+  boost::filesystem::remove_all(m_dirPath, code);
+  if (boost::system::errc::success != code)
+  {
+    stringstream logmsg;
+    logmsg << "Error when removing directory: " << m_dirPath 
+           << " Message: " << code.message()
+           << " Id: " << m_task->id();
+    LOG(logmsg.str(), grader::ERROR);
+  }
 }
 
 string grader_base::dir_path() const
@@ -98,21 +117,48 @@ void grader_base::write_to_disk(const string& path, const string& content) const
   params.flags = boost::iostreams::mapped_file::mapmode::readwrite;
   boost::iostreams::mapped_file mf;
   mf.open(params);
-  copy(content.cbegin(), content.cend(), mf.data());
+  if (mf.is_open())
+    copy(content.cbegin(), content.cend(), mf.data());
+  else 
+  {
+    LOG("Couldn't open memory mapped file for writing: " + path + "Id: " + m_task->id(), grader::ERROR);
+  }
 }
 
-Poco::ProcessHandle grader_base::run_compile(string& flags, Poco::Pipe& errPipe) const
+boost::optional<Poco::ProcessHandle> grader_base::run_compile(string& flags, Poco::Pipe& errPipe) const
 {
-  vector<string> pocoFlags{configuration::instance().get(configuration::SHELL_CMD_FLAG)->second, flags};
+  // Get shell inline cmd execution flag
+  const configuration& conf = configuration::instance();
+  auto shellCMDFlag = conf.get(configuration::SHELL_CMD_FLAG);
+  bool hasCMDFlag = true;
+  if (conf.invalid() == shellCMDFlag)
+  {
+    LOG("Does this shell have inline command execution flag? One not found in configuration.", grader::WARNING);
+  }
+  
+  vector<string> pocoFlags{hasCMDFlag ? shellCMDFlag->second : "", flags};
   // Check if file needs to written to disk
   if (!should_write_src_file())
   {
     Poco::Pipe stdinPipe;
-    auto ph = Poco::Process::launch(configuration::instance().get(configuration::SHELL)->second, pocoFlags, &stdinPipe, nullptr, &errPipe);
-    Poco::PipeOutputStream stdinPipeStream(stdinPipe);
-    stdinPipeStream << m_task->file_content();
-    stdinPipeStream.close();
-    return ph;
+    auto shell = conf.get(configuration::SHELL);
+    if (conf.invalid() != shell)
+    {
+      auto ph = Poco::Process::launch(shell->second, pocoFlags, &stdinPipe, nullptr, &errPipe);
+      Poco::PipeOutputStream stdinPipeStream(stdinPipe);
+      stdinPipeStream << m_task->file_content();
+      stdinPipeStream.close();
+      return ph;
+    }
+    else 
+    {
+      stringstream logmsg;
+      logmsg << "Shell not present in configuration, program compilation not possible! "
+             << "Function: run_compile" 
+             << "Id: " << m_task->id();
+      LOG(logmsg.str(), grader::ERROR);
+      return boost::optional<Poco::ProcessHandle>{};
+    }
   }
   else 
   {
@@ -121,12 +167,43 @@ Poco::ProcessHandle grader_base::run_compile(string& flags, Poco::Pipe& errPipe)
     pocoFlags[1] += " " + m_sourcePath;
     
     // Set permissions
-    boost::filesystem::permissions(m_sourcePath, boost::filesystem::add_perms | boost::filesystem::others_read);
-    boost::filesystem::permissions(m_dirPath, boost::filesystem::add_perms | boost::filesystem::others_write);
-    
+    boost::system::error_code code;
+    boost::filesystem::permissions(m_sourcePath, boost::filesystem::add_perms | boost::filesystem::others_read, code);
+    if (boost::system::errc::success != code)
+    {
+      stringstream logmsg;
+      logmsg << "Couldn't set read privileges for others on source file: " << m_sourcePath
+             << " Message: " << code.message() 
+             << " Id: " << m_task->id();
+      LOG(logmsg.str(), grader::ERROR);
+      return boost::optional<Poco::ProcessHandle>{};
+    }
+    boost::filesystem::permissions(m_dirPath, boost::filesystem::add_perms | boost::filesystem::others_write, code);
+    if (boost::system::errc::success != code)
+    {
+      stringstream logmsg;
+      logmsg << "Couldn't set read privileges for others on source file directory: " << m_dirPath
+             << " Message: " << code.message() 
+             << " Id: " << m_task->id();
+      LOG(logmsg.str(), grader::ERROR);
+      return boost::optional<Poco::ProcessHandle>{};
+    }
     
     // Launch compilation
-    return Poco::Process::launch(configuration::instance().get(configuration::SHELL)->second, pocoFlags, nullptr, nullptr, &errPipe);
+    auto shell = conf.get(configuration::SHELL);
+    if (conf.invalid() != shell)
+    {
+      return Poco::Process::launch(shell->second, pocoFlags, nullptr, nullptr, &errPipe);
+    }
+    else 
+    {
+      stringstream logmsg;
+      logmsg << "Shell not present in configuration, program compilation not possible! "
+             << "Function: run_compile" 
+             << "Id: " << m_task->id();
+      LOG(logmsg.str(), grader::ERROR);
+      return boost::optional<Poco::ProcessHandle>{};
+    }
   }
 }
 
@@ -159,15 +236,29 @@ bool grader_base::compile(string& compileErr) const
   
   // Launch compiler
   Poco::Pipe errPipe;
-  auto ph = run_compile(flags, errPipe);
+  auto phOpt = run_compile(flags, errPipe);
+  if (!phOpt)
+    return false;
+  auto ph = *phOpt;
   
   // Wait for process to finish and return error data if any
   int retCode = ph.wait();
   if (0 != retCode)
   {
     Poco::PipeInputStream errPipeStream(errPipe);
-    compileErr = move(string(istreambuf_iterator<char>(errPipeStream),
-                              istreambuf_iterator<char>()));
+    if (!errPipeStream.fail())
+    {
+      compileErr = move(string(istreambuf_iterator<char>(errPipeStream),
+                                istreambuf_iterator<char>()));
+    }
+    else 
+    {
+      stringstream logmsg;
+      logmsg << "Couldn't set compiler error, input stream from compiler process failed. "
+             << "Function: compile"
+             << "Id: " << m_task->id();
+      LOG(logmsg.str(), grader::WARNING);
+    }
     return false;
   }
   return true;
@@ -202,6 +293,13 @@ bool grader_base::run_test(const test& t) const
   // Case when input is file and output goes to file
   else if (subtest::subtest_i_o::FILE == in.io() && subtest::subtest_i_o::FILE == out.io())
     return run_test_file_file(in, out, m_executablePath);
+  
+  // Unknown case
+  stringstream logmsg;
+  logmsg << "I/O for input or output test unknown. Couldn't run test at all, returning test failure."
+         << "Function: run_test "
+         << "Id: " << m_task->id();
+  LOG(logmsg.str(), grader::WARNING);
   return false;
 }
 
@@ -212,6 +310,15 @@ bool grader_base::run_test_std_std(const subtest& in, const subtest& out, const 
   Poco::PipeOutputStream toBinariesStream(toBinaries);
   Poco::PipeInputStream fromBinariesStream(fromBinaries);
   toBinariesStream << in.content().c_str();
+  if (toBinariesStream.fail())
+  {
+    stringstream logmsg;
+    logmsg << "Input stream to process failed. "
+           << "Function: run_test_std_std "
+           << "Id: " << m_task->id();
+    LOG(logmsg.str(), grader::WARNING);
+    return false;
+  }
   toBinariesStream.close();
   
   return evaluate_output_stdin(fromBinariesStream, out, ph);
@@ -222,6 +329,15 @@ bool grader_base::run_test_cmd_std(const subtest& in, const subtest& out,
 {
   stringstream argsStream;
   argsStream << in.content().c_str();
+  if (argsStream.fail())
+  {
+    stringstream logmsg;
+    logmsg << "Writing input test content to arguments stringstream failed. "
+           << "Function: run_test_cmd_std "
+           << "Id: " << m_task->id();
+    LOG(logmsg.str(), grader::WARNING);
+    return false;
+  }
   vector<string> args{istream_iterator<string>(argsStream), istream_iterator<string>()};
   auto ph = start_executable_process(executable, args, m_dirPath, nullptr, &fromBinaries);
   Poco::PipeInputStream fromBinariesStream(fromBinaries);
@@ -244,11 +360,29 @@ bool grader_base::run_test_std_file(const subtest& in, const subtest& out, const
                                    Poco::Pipe& toBinaries) const
 {
   string path = out.path().c_str();
-  if (!boost::filesystem::path(path).is_relative()) throw runtime_error("Absolute paths are not supported!");
+  if (!boost::filesystem::path(path).is_relative()) 
+  {
+    stringstream logmsg;
+    logmsg << "Invalid output path. Absolute paths are not supported. "
+           << "Function: run_test_std_file "
+           << "Path: " << path << ' '
+           << "Id: " << m_task->id();
+    LOG(logmsg.str(), grader::WARNING);
+    return false;
+  }
   auto absolutePath = m_dirPath + '/' + path;
   auto ph = start_executable_process(executable, vector<string>{move(path)}, m_dirPath, &toBinaries, nullptr);
   Poco::PipeOutputStream toBinariesStream(toBinaries);
   toBinariesStream << in.content().c_str();
+  if (toBinariesStream.fail())
+  {
+    stringstream logmsg;
+    logmsg << "Input stream to process failed. "
+           << "Function: run_test_std_file "
+           << "Id: " << m_task->id();
+    LOG(logmsg.str(), grader::WARNING);
+    return false;
+  }
   toBinariesStream.close();
   
   return evaluate_output_file(absolutePath, out, ph);
@@ -258,13 +392,32 @@ bool grader_base::run_test_cmd_file(const subtest& in, const subtest& out, const
 {
   // Check path first
   string path = out.path().c_str();
-  if (!boost::filesystem::path(path).is_relative()) throw runtime_error("Absolute paths are not supported!");
+  if (!boost::filesystem::path(path).is_relative()) 
+  {
+    stringstream logmsg;
+    logmsg << "Invalid output path. Absolute paths are not supported. "
+           << "Function: run_test_cmd_file "
+           << "Path: " << path << ' '
+           << "Id: " << m_task->id();
+    LOG(logmsg.str(), grader::WARNING);
+    return false;
+  }
   auto absolutePath = m_dirPath + '/' + path;
   
   // Fill args list
   vector<string> args{move(path)};
   stringstream argsStream;
   argsStream << in.content().c_str();
+  if (argsStream.fail())
+  {
+    stringstream logmsg;
+    logmsg << "Writing input test content to arguments stringstream failed. "
+           << "Function: run_test_cmd_file "
+           << "Id: " << m_task->id();
+    LOG(logmsg.str(), grader::WARNING);
+    return false;
+    return false;
+  }
   args.insert(args.begin() + 1, istream_iterator<string>(argsStream), istream_iterator<string>());
   auto ph = start_executable_process(executable, args, m_dirPath, nullptr, nullptr);
   
@@ -275,7 +428,16 @@ bool grader_base::run_test_file_file(const subtest& in, const subtest& out, cons
 {
   vector<string> args{create_file_input(in)};
   string path = out.path().c_str();
-  if (!boost::filesystem::path(path).is_relative()) throw runtime_error("Absolute paths are not supported!");
+  if (!boost::filesystem::path(path).is_relative()) 
+  {
+    stringstream logmsg;
+    logmsg << "Invalid output path. Absolute paths are not supported. "
+           << "Function: run_test_file_file "
+           << "Path: " << path << ' '
+           << "Id: " << m_task->id();
+    LOG(logmsg.str(), grader::WARNING);
+    return false;
+  }
   auto absolutePath = m_dirPath + '/' + path;
   args.push_back(move(path));
   auto ph = start_executable_process(executable, args, m_dirPath, nullptr, nullptr);
@@ -286,10 +448,30 @@ bool grader_base::run_test_file_file(const subtest& in, const subtest& out, cons
 vector<string> grader_base::create_file_input(const subtest& in) const
 {
   string path = in.path().c_str();
-  if (!boost::filesystem::path(path).is_relative()) throw std::runtime_error("Absolute paths are forbidden.");
+  if (!boost::filesystem::path(path).is_relative()) 
+  {
+    stringstream logmsg;
+    logmsg << "Invalid input path. Absolute paths are not supported. "
+           << "Function: run_test_std_file "
+           << "Path: " << path << ' '
+           << "Id: " << m_task->id();
+    LOG(logmsg.str(), grader::WARNING);
+    return vector<string>{};
+  }
   string absolutePath = m_dirPath + '/' + path;
   write_to_disk(absolutePath, in.content().c_str());
-  boost::filesystem::permissions(absolutePath, boost::filesystem::add_perms | boost::filesystem::others_read);
+  boost::system::error_code code;
+  boost::filesystem::permissions(absolutePath, boost::filesystem::add_perms | boost::filesystem::others_read, code);
+  if (boost::system::errc::success != code)
+  {
+    stringstream logmsg;
+    logmsg << "Couldn't set read permissions for others to read file input for program. "
+           << "Function: create_file_input "
+           << "Message: " << code.message()
+           << "Id: " << m_task->id();
+    LOG(logmsg.str(), grader::WARNING);
+    return vector<string>{};
+  }
   return move(vector<string>{move(path)});
 }
 
@@ -298,21 +480,59 @@ bool grader_base::evaluate_output_stdin(Poco::PipeInputStream& fromBinariesStrea
 {
   int retCode = ph.wait();
   if (0 != retCode) return false;
+  if (fromBinariesStream.fail())
+  {
+    stringstream logmsg;
+    logmsg << "Output stream from program failed. "
+           << "Function: evaluate_output_stdin "
+           << "Id: " << m_task->id();
+    LOG(logmsg.str(), grader::WARNING);
+    return false;
+  }
   stringstream result;
   result << fromBinariesStream.rdbuf();
+  if (result.fail())
+  {
+    stringstream logmsg;
+    logmsg << "Reading output from program to stringstream failed. "
+           << "Function: evaluate_output_stdin "
+           << "Id: " << m_task->id();
+    LOG(logmsg.str(), grader::WARNING);
+    return false;
+  }
   auto resStr = move(result.str());
   boost::trim(resStr);
   return resStr == out.content().c_str();
 }
 
+// TODO: Switch to memory mapped file output evaluation
 bool grader_base::evaluate_output_file(const string& absolutePath, const subtest& out, const Poco::ProcessHandle& ph) const
 {
   int retCode = ph.wait();
   if (0 != retCode) return false;
   
   ifstream result(absolutePath);
-  if (!result.is_open()) throw runtime_error("Failed to open file with result content!");
+  if (!result.is_open())
+  {
+    stringstream logmsg;
+    logmsg << "Failed to open file with program output. "
+           << "Function: evaluate_output_file "
+           << "Id: " << m_task->id()
+           << "Path: " << absolutePath;
+    LOG(logmsg.str(), grader::WARNING);
+    return false;
+  }
   string resStr{istreambuf_iterator<char>(result), istreambuf_iterator<char>()};
+  if (result.fail())
+  {
+    stringstream logmsg;
+    logmsg << "Reading program output from file into string failed (stream failed). "
+           << "Function: evaluate_output_file "
+           << "Id: " << m_task->id()
+           << "Path: " << absolutePath;
+    LOG(logmsg.str(), grader::WARNING);
+    return false;
+  }
   boost::trim(resStr);
   return resStr == out.content().c_str();
 }

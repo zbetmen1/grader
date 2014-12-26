@@ -1,6 +1,7 @@
 // Project headers
 #include "subtest.hpp"
 #include "configuration.hpp"
+#include "grader_log.hpp"
 
 // STL headers
 #include <algorithm>
@@ -53,6 +54,7 @@ namespace grader
     else if ("file" == ioStr)
       return subtest_i_o::FILE;
     else
-      throw runtime_error("Wrong input given!");
+      LOG("Unknown subtest I/O specified. Possible values are: 'std', 'cmd', 'file'. Given value: " + ioStr, grader::ERROR);
+    return subtest_i_o::STD;
   }
 }

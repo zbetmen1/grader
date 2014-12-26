@@ -33,6 +33,9 @@
 #include <string>
 #include <vector>
 
+// BOOST headers
+#include <boost/optional.hpp>
+
 // Poco headers
 #include <Poco/Process.h>
 
@@ -98,7 +101,7 @@ namespace grader
     std::string source_path() const;
     std::string binaries_path() const;
     void write_to_disk(const std::string& path, const std::string& content) const;
-    Poco::ProcessHandle run_compile(std::string& flags, Poco::Pipe& errPipe) const;
+    boost::optional<Poco::ProcessHandle> run_compile(std::string& flags, Poco::Pipe& errPipe) const;
     
     // Run test cases
     bool run_test_std_std(const subtest& in, const subtest& out, const std::string& executable, 

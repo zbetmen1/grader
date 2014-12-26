@@ -18,6 +18,9 @@
   <LOG_LEVEL>DEBUG</LOG_LEVEL>
   <LOG_LEVEL_DEFAULT>WARNING</LOG_LEVEL_DEFAULT>
   
+  <!--Testing config warnings-->
+  <LOG_FILE>grader_mod%N.log</LOG_FILE>
+  
   <!--Suppoted languages-->
   <LANGUAGE>
     <NAME>c</NAME>

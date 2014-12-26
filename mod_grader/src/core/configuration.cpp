@@ -1,5 +1,6 @@
 // Project headers
 #include "configuration.hpp"
+#include "grader_log.hpp"
 
 // STL headers
 #include <fstream>
@@ -7,18 +8,9 @@
 // BOOST headers
 #include <boost/property_tree/xml_parser.hpp>
 #include <boost/property_tree/ptree.hpp>
-#include <boost/log/core.hpp>
-#include <boost/log/trivial.hpp>
-#include <boost/log/expressions.hpp>
-#include <boost/log/sinks/text_file_backend.hpp>
-#include <boost/log/utility/setup/file.hpp>
-#include <boost/log/utility/setup/common_attributes.hpp>
-#include <boost/log/sources/severity_logger.hpp>
-#include <boost/log/sources/record_ostream.hpp>
 
 using namespace std;
 using namespace boost::property_tree;
-using namespace boost::log;
 
 namespace grader
 {
@@ -43,15 +35,14 @@ const string configuration::LOG_LEVEL = "LOG_LEVEL";
 configuration::configuration()
 {
   load_config();
-  init_logging();
 }
 
-configuration::map_type::const_iterator configuration::get(const std::string& key) const
+configuration::map_type::const_iterator configuration::get(const std::string& key) const noexcept
 {
   return m_conf.find(key);
 }
 
-configuration::grader_info configuration::get_grader(const string& languageName) const
+configuration::grader_info configuration::get_grader(const string& languageName) const noexcept
 {
   auto it = m_languages.find(language(languageName, "", ""));
   if (m_languages.cend() == it)
@@ -65,7 +56,19 @@ void configuration::load_config()
   // Read XML configuration into property tree
   ptree pt;
   ifstream in(PATH_TO_CONFIG_FILE);
+  if (!in.is_open())
+  {
+    exit(1);
+  }
   xml_parser::read_xml(in, pt, xml_parser::no_comments);
+  if (in.bad())
+  {
+    exit(1);
+  }
+  else if (in.fail())
+  {
+    exit(1);
+  }
   
   // Iterate over property tree and fill map for configuration
   auto root = pt.get_child("config");
@@ -74,12 +77,23 @@ void configuration::load_config()
   while (treeItBegin != treeItEnd)
   {
     if (treeItBegin->first != "LANGUAGE")
-      m_conf[treeItBegin->first] = treeItBegin->second.get_value<string>();
+    {
+      if (m_conf.cend() == m_conf.find(treeItBegin->first))
+      {
+        m_conf[treeItBegin->first] = treeItBegin->second.get_value<string>();
+      }
+    }
     else 
     {
-      string name = treeItBegin->second.get_child("NAME").get_value<string>();
-      string graderName = treeItBegin->second.get_child("GRADER").get_value<string>();
-      string libName = treeItBegin->second.get_child("LIB").get_value<string>();
+      string name;
+      string graderName;
+      string libName;
+      auto nameChild = treeItBegin->second.get_child_optional("NAME");
+      auto graderChild = treeItBegin->second.get_child_optional("GRADER");
+      auto libChild = treeItBegin->second.get_child_optional("LIB");
+      if (nameChild) name = nameChild->get_value<string>();
+      if (graderChild) graderName = graderChild->get_value<string>();
+      if (libChild) libName = libChild->get_value<string>();
       m_languages.emplace(name, graderName, libName);
     }
     ++treeItBegin;
@@ -89,45 +103,7 @@ void configuration::load_config()
   s_loaded = true;
 }
 
-void configuration::init_logging() const
-{
-  add_file_log(keywords::file_name = get(LOG_DIR)->second + '/' + get(LOG_FILE)->second, 
-               keywords::rotation_size = 10 * 1024 * 1024,
-               keywords::time_based_rotation = sinks::file::rotation_at_time_point(0, 0, 0),
-               keywords::format = "[%TimeStamp%]: %Message%"
-              );
-  string logLevel = get(LOG_LEVEL)->second;
-  if ("TRACE" == logLevel)
-  {
-    core::get()->set_filter(trivial::severity >= trivial::trace);
-  }
-  else if ("DEBUG" == logLevel)
-  {
-    core::get()->set_filter(trivial::severity >= trivial::debug);
-  }
-  else if ("INFO" == logLevel)
-  {
-    core::get()->set_filter(trivial::severity >= trivial::info);
-  }
-  else if ("WARNING" == logLevel)
-  {
-    core::get()->set_filter(trivial::severity >= trivial::warning);
-  }
-  else if ("ERROR" == logLevel)
-  {
-    core::get()->set_filter(trivial::severity >= trivial::error);
-  }
-  else if ("FATAL" == logLevel)
-  {
-    core::get()->set_filter(trivial::severity >= trivial::fatal);
-  }
-  else 
-  {
-    core::get()->set_filter(trivial::severity >= trivial::info);
-  }
-}
-
-const configuration& configuration::instance()
+const configuration& configuration::instance() noexcept
 {
   static configuration singleton;
   return singleton;
@@ -141,17 +117,12 @@ boost::interprocess::managed_shared_memory& shm()
   return sshm;
 }
 
-const void* get_configuration()
-{
-  return &configuration::instance();
-}
-
-const string& configuration::get_grader_name(const configuration::grader_info& grInfo)
+const string& configuration::get_grader_name(const configuration::grader_info& grInfo) noexcept
 {
   return ::get<0>(grInfo);
 }
 
-const string& configuration::get_lib_name(const configuration::grader_info& grInfo)
+const string& configuration::get_lib_name(const configuration::grader_info& grInfo) noexcept
 {
   return ::get<1>(grInfo);
 }
