@@ -40,7 +40,20 @@ task::task(const char* fileName, std::size_t fnLen, const char* fileContent, std
 m_memoryBytes(memoryBytes), m_timeMS(timeMS), m_state(state::WAITING), m_status(shm().get_segment_manager())
 {
   // Correctly handle case when client sent relative file path (extract file name)
-  auto tmpPath = boost::filesystem::path(fileName, fileName + fnLen);
+  using path_t = boost::filesystem::path;
+  path_t tmpPath;
+  try 
+  {
+    tmpPath = path_t(fileName, fileName + fnLen);
+  } 
+  catch (const exception& e) 
+  {
+    stringstream logmsg;
+    logmsg << "Invalid file name! Task id: " << id;
+    LOG(logmsg.str(), grader::ERROR);
+    set_state(state::INVALID);
+    return;
+  }
   if (tmpPath.has_filename())
   {
     m_fileName = tmpPath.filename().c_str();

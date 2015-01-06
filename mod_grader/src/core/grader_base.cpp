@@ -83,7 +83,14 @@ grader_base::~grader_base()
 
 string grader_base::dir_path() const
 {
-  auto dpath = configuration::instance().get(configuration::BASE_DIR)->second + "/" + m_task->id();
+  const configuration& conf = configuration::instance();
+  auto baseDirIt = conf.get(configuration::BASE_DIR);
+  if (conf.invalid() == baseDirIt)
+  {
+    return "";
+  }
+  
+  auto dpath = baseDirIt->second + "/" + m_task->id();
   return move(dpath);
 }
 
@@ -359,8 +366,23 @@ bool grader_base::run_test_file_std(const subtest& in, const subtest& out,
 bool grader_base::run_test_std_file(const subtest& in, const subtest& out, const string& executable, 
                                    Poco::Pipe& toBinaries) const
 {
+  using path_t = boost::filesystem::path;
   string path = out.path().c_str();
-  if (!boost::filesystem::path(path).is_relative()) 
+  path_t p;
+  try 
+  {
+    p = path_t(path);
+  } 
+  catch (const exception& e) 
+  {
+    stringstream logmsg;
+    logmsg << "Invalid output path name. Error message: " << e.what()
+           << " Function: run_test_std_file"
+           << "Task id: " << m_task->id();
+    LOG(logmsg.str(), grader::WARNING);
+    return false;
+  }
+  if (!p.is_relative()) 
   {
     stringstream logmsg;
     logmsg << "Invalid output path. Absolute paths are not supported. "
@@ -392,7 +414,23 @@ bool grader_base::run_test_cmd_file(const subtest& in, const subtest& out, const
 {
   // Check path first
   string path = out.path().c_str();
-  if (!boost::filesystem::path(path).is_relative()) 
+  using path_t = boost::filesystem::path;
+  path_t p;
+  try 
+  {
+    p = path_t(path);
+  } 
+  catch (const exception e) 
+  {
+    stringstream logmsg;
+    logmsg << "Invalid output path name. Error message: " << e.what()
+           << " Function: run_test_cmd_file"
+           << "Task id: " << m_task->id();
+    LOG(logmsg.str(), grader::WARNING);
+    return false;
+  }
+  
+  if (!p.is_relative()) 
   {
     stringstream logmsg;
     logmsg << "Invalid output path. Absolute paths are not supported. "
@@ -428,7 +466,22 @@ bool grader_base::run_test_file_file(const subtest& in, const subtest& out, cons
 {
   vector<string> args{create_file_input(in)};
   string path = out.path().c_str();
-  if (!boost::filesystem::path(path).is_relative()) 
+  using path_t = boost::filesystem::path;
+  path_t p;
+  try 
+  {
+    p = path_t(path);
+  } 
+  catch (const exception& e) 
+  {
+    stringstream logmsg;
+    logmsg << "Invalid output path name. Error message: " << e.what()
+           << " Function: run_test_file_file"
+           << "Task id: " << m_task->id();
+    LOG(logmsg.str(), grader::WARNING);
+    return false;
+  }
+  if (!p.is_relative()) 
   {
     stringstream logmsg;
     logmsg << "Invalid output path. Absolute paths are not supported. "
@@ -448,11 +501,26 @@ bool grader_base::run_test_file_file(const subtest& in, const subtest& out, cons
 vector<string> grader_base::create_file_input(const subtest& in) const
 {
   string path = in.path().c_str();
-  if (!boost::filesystem::path(path).is_relative()) 
+  using path_t = boost::filesystem::path;
+  path_t p;
+  try 
+  {
+    p = path_t(path);
+  } 
+  catch (const exception& e) 
+  {
+    stringstream logmsg;
+    logmsg << "Invalid input path name. Error message: " << e.what()
+           << " Function: create_file_input"
+           << "Task id: " << m_task->id();
+    LOG(logmsg.str(), grader::WARNING);
+    return vector<string>{};
+  }
+  if (!p.is_relative())
   {
     stringstream logmsg;
     logmsg << "Invalid input path. Absolute paths are not supported. "
-           << "Function: run_test_std_file "
+           << "Function: create_file_input "
            << "Path: " << path << ' '
            << "Id: " << m_task->id();
     LOG(logmsg.str(), grader::WARNING);
