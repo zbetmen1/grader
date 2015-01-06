@@ -53,7 +53,7 @@ void grader_base::initialize(task* t)
 {
   m_task = t;
   m_dirPath = dir_path();
-  m_executablePath = binaries_path();
+  m_executablePath = executable_path();
   m_sourcePath = source_path() + executable_extension();
   boost::system::error_code code;
   boost::filesystem::create_directories(m_dirPath, code);
@@ -99,7 +99,7 @@ string grader_base::source_path() const
   return m_dirPath + "/" + m_task->file_name();
 }
 
-string grader_base::binaries_path() const
+string grader_base::executable_path() const
 {
   return m_dirPath + "/" + strip_extension(m_task->file_name());
 }
@@ -275,23 +275,23 @@ bool grader_base::run_test(const test& t) const
 {
   const subtest& in = t.first;
   const subtest& out = t.second;
-  Poco::Pipe toBinaries, fromBinaries;
+  Poco::Pipe toExecutable, fromExecutable;
   
   // Case when both i/o are from standard streams
   if (subtest::subtest_i_o::STD == in.io() && subtest::subtest_i_o::STD == out.io())
-    return run_test_std_std(in, out, m_executablePath, toBinaries, fromBinaries);
+    return run_test_std_std(in, out, m_executablePath, toExecutable, fromExecutable);
   
   // Case when input comes as a command line args and executable output is written to stdout
   else if (subtest::subtest_i_o::CMD == in.io() && subtest::subtest_i_o::STD == out.io())
-    return run_test_cmd_std(in, out, m_executablePath, fromBinaries);
+    return run_test_cmd_std(in, out, m_executablePath, fromExecutable);
   
   // Case when input comes as file and executable output is written to stdout
   else if (subtest::subtest_i_o::FILE == in.io() && subtest::subtest_i_o::STD == out.io())
-    return run_test_file_std(in, out, m_executablePath, fromBinaries);
+    return run_test_file_std(in, out, m_executablePath, fromExecutable);
   
   // Case when input is stdin and output goes to file
   else if (subtest::subtest_i_o::STD == in.io() && subtest::subtest_i_o::FILE == out.io())
-    return run_test_std_file(in, out, m_executablePath, toBinaries);
+    return run_test_std_file(in, out, m_executablePath, toExecutable);
   
   // Case when input comes as cmd line arguments and output goes to file
   else if (subtest::subtest_i_o::CMD == in.io() && subtest::subtest_i_o::FILE == out.io())
@@ -311,13 +311,13 @@ bool grader_base::run_test(const test& t) const
 }
 
 bool grader_base::run_test_std_std(const subtest& in, const subtest& out, const string& executable, 
-                                   Poco::Pipe& toBinaries, Poco::Pipe& fromBinaries) const
+                                   Poco::Pipe& toExecutable, Poco::Pipe& fromExecutable) const
 {
-  auto ph = start_executable_process(executable, vector<string>{}, m_dirPath, &toBinaries, &fromBinaries);
-  Poco::PipeOutputStream toBinariesStream(toBinaries);
-  Poco::PipeInputStream fromBinariesStream(fromBinaries);
-  toBinariesStream << in.content().c_str();
-  if (toBinariesStream.fail())
+  auto ph = start_executable_process(executable, vector<string>{}, m_dirPath, &toExecutable, &fromExecutable);
+  Poco::PipeOutputStream toExecutableStream(toExecutable);
+  Poco::PipeInputStream fromExecutableStream(fromExecutable);
+  toExecutableStream << in.content().c_str();
+  if (toExecutableStream.fail())
   {
     stringstream logmsg;
     logmsg << "Input stream to process failed. "
@@ -326,13 +326,13 @@ bool grader_base::run_test_std_std(const subtest& in, const subtest& out, const 
     LOG(logmsg.str(), grader::WARNING);
     return false;
   }
-  toBinariesStream.close();
+  toExecutableStream.close();
   
-  return evaluate_output_stdin(fromBinariesStream, out, ph);
+  return evaluate_output_stdin(fromExecutableStream, out, ph);
 }
 
 bool grader_base::run_test_cmd_std(const subtest& in, const subtest& out, 
-                                   const string& executable, Poco::Pipe& fromBinaries) const
+                                   const string& executable, Poco::Pipe& fromExecutable) const
 {
   stringstream argsStream;
   argsStream << in.content().c_str();
@@ -346,25 +346,25 @@ bool grader_base::run_test_cmd_std(const subtest& in, const subtest& out,
     return false;
   }
   vector<string> args{istream_iterator<string>(argsStream), istream_iterator<string>()};
-  auto ph = start_executable_process(executable, args, m_dirPath, nullptr, &fromBinaries);
-  Poco::PipeInputStream fromBinariesStream(fromBinaries);
+  auto ph = start_executable_process(executable, args, m_dirPath, nullptr, &fromExecutable);
+  Poco::PipeInputStream fromExecutableStream(fromExecutable);
   
-  return evaluate_output_stdin(fromBinariesStream, out, ph);
+  return evaluate_output_stdin(fromExecutableStream, out, ph);
 }
 
 bool grader_base::run_test_file_std(const subtest& in, const subtest& out, 
-                                    const string& executable, Poco::Pipe& fromBinaries) const
+                                    const string& executable, Poco::Pipe& fromExecutable) const
 {
   // Fill args and launch executable
   vector<string> args{create_file_input(in)};
-  auto ph = start_executable_process(executable, args, m_dirPath, nullptr, &fromBinaries);
-  Poco::PipeInputStream fromBinariesStream(fromBinaries);
+  auto ph = start_executable_process(executable, args, m_dirPath, nullptr, &fromExecutable);
+  Poco::PipeInputStream fromExecutableStream(fromExecutable);
   
-  return evaluate_output_stdin(fromBinariesStream, out, ph);
+  return evaluate_output_stdin(fromExecutableStream, out, ph);
 }
 
 bool grader_base::run_test_std_file(const subtest& in, const subtest& out, const string& executable, 
-                                   Poco::Pipe& toBinaries) const
+                                   Poco::Pipe& toExecutable) const
 {
   using path_t = boost::filesystem::path;
   string path = out.path().c_str();
@@ -393,10 +393,10 @@ bool grader_base::run_test_std_file(const subtest& in, const subtest& out, const
     return false;
   }
   auto absolutePath = m_dirPath + '/' + path;
-  auto ph = start_executable_process(executable, vector<string>{move(path)}, m_dirPath, &toBinaries, nullptr);
-  Poco::PipeOutputStream toBinariesStream(toBinaries);
-  toBinariesStream << in.content().c_str();
-  if (toBinariesStream.fail())
+  auto ph = start_executable_process(executable, vector<string>{move(path)}, m_dirPath, &toExecutable, nullptr);
+  Poco::PipeOutputStream toExecutableStream(toExecutable);
+  toExecutableStream << in.content().c_str();
+  if (toExecutableStream.fail())
   {
     stringstream logmsg;
     logmsg << "Input stream to process failed. "
@@ -405,7 +405,7 @@ bool grader_base::run_test_std_file(const subtest& in, const subtest& out, const
     LOG(logmsg.str(), grader::WARNING);
     return false;
   }
-  toBinariesStream.close();
+  toExecutableStream.close();
   
   return evaluate_output_file(absolutePath, out, ph);
 }
@@ -543,12 +543,12 @@ vector<string> grader_base::create_file_input(const subtest& in) const
   return move(vector<string>{move(path)});
 }
 
-bool grader_base::evaluate_output_stdin(Poco::PipeInputStream& fromBinariesStream, const subtest& out, 
+bool grader_base::evaluate_output_stdin(Poco::PipeInputStream& fromExecutableStream, const subtest& out, 
                                         const Poco::ProcessHandle& ph) const
 {
   int retCode = ph.wait();
   if (0 != retCode) return false;
-  if (fromBinariesStream.fail())
+  if (fromExecutableStream.fail())
   {
     stringstream logmsg;
     logmsg << "Output stream from program failed. "
@@ -558,7 +558,7 @@ bool grader_base::evaluate_output_stdin(Poco::PipeInputStream& fromBinariesStrea
     return false;
   }
   stringstream result;
-  result << fromBinariesStream.rdbuf();
+  result << fromExecutableStream.rdbuf();
   if (result.fail())
   {
     stringstream logmsg;
@@ -606,7 +606,7 @@ bool grader_base::evaluate_output_file(const string& absolutePath, const subtest
 }
 
 Poco::ProcessHandle grader_base::start_executable_process(const string& executable, const vector< string >& args, const string& workingDir, 
-                                                          Poco::Pipe* toBinaries, Poco::Pipe* fromBinaries) const
+                                                          Poco::Pipe* toExecutable, Poco::Pipe* fromExecutable) const
 {
-  return Poco::Process::launch(executable, args, workingDir, toBinaries, fromBinaries, nullptr);
+  return Poco::Process::launch(executable, args, workingDir, toExecutable, fromExecutable, nullptr);
 }
