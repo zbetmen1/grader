@@ -42,4 +42,6 @@ module AP_MODULE_DECLARE_DATA grader_module =
   register_hooks
 };
 
+void avoid_zombie_handler(int);
+
 #endif // MOD_GRADER_H

@@ -20,6 +20,7 @@ bool configuration::s_loaded = false;
 
 // Compile time parameters
 const string configuration::PATH_TO_CONFIG_FILE="/etc/grader/config.xml";
+const configuration::grader_info configuration::INVALID_GR_INFO{"", ""};
 
 // Runtime configurable parameters
 const string configuration::SHMEM_NAME = "SHMEM_NAME";
@@ -46,7 +47,7 @@ configuration::grader_info configuration::get_grader(const string& languageName)
 {
   auto it = m_languages.find(language(languageName, "", ""));
   if (m_languages.cend() == it)
-    return move(make_pair<string, string>("",""));
+    return INVALID_GR_INFO;
   else 
     return move(make_pair(it->grader_name, it->lib_name));
 }
@@ -119,12 +120,12 @@ boost::interprocess::managed_shared_memory& shm()
 
 const string& configuration::get_grader_name(const configuration::grader_info& grInfo) noexcept
 {
-  return ::get<0>(grInfo);
+  return grInfo.first;
 }
 
 const string& configuration::get_lib_name(const configuration::grader_info& grInfo) noexcept
 {
-  return ::get<1>(grInfo);
+  return grInfo.second;
 }
 
 }

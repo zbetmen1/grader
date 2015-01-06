@@ -12,7 +12,6 @@
 #include <fstream>
 #include <cerrno>
 #include <string>
-#include <unistd.h>
 
 // BOOST headers
 #include <boost/algorithm/string.hpp>
@@ -21,6 +20,11 @@
 
 // Apache headers
 #include <apr_tables.h>
+
+// Linux headers
+#include <csignal>
+#include <sys/wait.h>
+#include <unistd.h>
 
 using namespace std;
 using namespace grader;
@@ -32,7 +36,21 @@ EXTERN_C void register_hooks(apr_pool_t* /*pool*/)
 
 char* task_id_from_url(request_rec* r)
 {
-  boost::filesystem::path p(r->filename);
+  // Check path
+  boost::filesystem::path p;
+  try
+  {
+    p = boost::filesystem::path(r->filename);
+  } catch(const exception& e)
+  {
+    stringstream logmsg;
+    logmsg << "Invalid file name from request. File name: " << r->filename
+           << " Error message: " << e.what();
+    LOG(logmsg.str(), grader::ERROR);
+    return nullptr;
+  }
+  
+  // Get file name
   const char* taskIdWithExt = p.filename().c_str();
   char* taskId = apr_pstrdup(r->pool, taskIdWithExt);
   auto len = strlen(taskId);
@@ -44,6 +62,9 @@ EXTERN_C int grader_handler(request_rec* r)
 {
   if (!r->handler || strcmp(r->handler, "grader")) return (DECLINED);
   
+  // Set signal handler to avoid zombie processes
+  signal(SIGCHLD, &avoid_zombie_handler);
+  
   /* Dispatch on type of request, when request type is POST
    assume that we have new grading to do, but if request type
    is GET assume that clients are asking for grading results */
@@ -51,7 +72,7 @@ EXTERN_C int grader_handler(request_rec* r)
   {
     LOG(apr_pstrcat(r->pool, "Accepted request; method: GET address: ", r->filename, nullptr), grader::DEBUG);
     char* taskId = task_id_from_url(r);
-    if (task::is_valid_task_name(taskId))
+    if (taskId && task::is_valid_task_name(taskId))
     {
       auto foundTask = shm_find<task>(taskId);
       if (foundTask)
@@ -73,15 +94,36 @@ EXTERN_C int grader_handler(request_rec* r)
     LOG(apr_pstrcat(r->pool, "Accepted request; method: POST address: ", r->filename, nullptr), grader::DEBUG);
     request_parser parser(r);
     request_parser::parsed_data data;
-    parser.parse(data);
+    int httpCode = parser.parse(data);
+    if (OK != httpCode)
+    {
+      stringstream logmsg;
+      logmsg << "Bad POST request. Http code: " << httpCode;
+      LOG(logmsg.str(), grader::ERROR);
+      return httpCode;
+    }
     task* newTask = task::create_task(get<request_parser::FILE_NAME>(data),
                                       get<request_parser::FILE_NAME_LEN>(data),
                                       get<request_parser::FILE_CONTENT>(data),
                                       get<request_parser::FILE_CONTENT_LEN>(data),
                                       get<request_parser::TESTS_CONTENT>(data),
                                       get<request_parser::TESTS_CONTENT_LEN>(data));
+    if (!newTask || task::state::INVALID == newTask->get_state())
+    {
+      shm_destroy<task>(newTask->id());
+      return HTTP_INTERNAL_SERVER_ERROR;
+    }
+    
     LOG(apr_pstrcat(r->pool, "Created task with id: ", newTask->id(), nullptr), grader::DEBUG);
     int pid = fork();
+    if (-1 == pid)
+    {
+      stringstream logmsg;
+      logmsg << "Forking child process to do task failed! Error msg: "
+             <<  strerror(errno);
+      LOG(logmsg.str(), grader::ERROR);
+      return HTTP_INTERNAL_SERVER_ERROR;
+    }
     
     // Child process
     if (0 == pid)
@@ -98,11 +140,12 @@ EXTERN_C int grader_handler(request_rec* r)
   {
     LOG(apr_pstrcat(r->pool, "Accepted request; method: DELETE address: ", r->filename, nullptr), grader::DEBUG);
     char* taskId = task_id_from_url(r);
-    if (task::is_valid_task_name(taskId))
+    if (taskId && task::is_valid_task_name(taskId))
     {
       auto foundTask = shm_find<task>(taskId);
       if (foundTask && (task::state::FINISHED == foundTask->get_state() ||
-                        task::state::COMPILE_ERROR == foundTask->get_state()))
+                        task::state::COMPILE_ERROR == foundTask->get_state() ||
+                        task::state::INVALID == foundTask->get_state()))
       {
         shm_destroy<task>(taskId);
         ap_rprintf(r, "{ \"STATE\" : \"DESTROYED\" }");
@@ -123,4 +166,10 @@ EXTERN_C int grader_handler(request_rec* r)
     return (HTTP_NOT_FOUND);
   }
   return OK;
+}
+
+void avoid_zombie_handler(int)
+{
+  int childStatus;
+  wait(&childStatus);
 }

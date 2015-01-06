@@ -1,5 +1,7 @@
 #include "grader_c.hpp"
 
+#include <stdexcept>
+
 using namespace std;
 
 const vector<const char*> grader_c::m_extensions{".c"};

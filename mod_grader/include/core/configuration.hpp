@@ -57,6 +57,7 @@ namespace grader
     
     // Compile time parameters
     static const std::string PATH_TO_CONFIG_FILE;
+    static const grader_info INVALID_GR_INFO;
     
     // Runtime parameters
     static const std::string SHELL;

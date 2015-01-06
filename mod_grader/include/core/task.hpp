@@ -34,7 +34,8 @@ namespace grader
     // Types and constants
     using test = std::pair<subtest, subtest>;
     using test_attributes = std::tuple<std::size_t, std::size_t, std::string>;
-    enum class state : unsigned char { WAITING, COMPILING, COMPILE_ERROR, RUNNING, FINISHED };
+    enum class state : unsigned char { INVALID, WAITING, COMPILING, COMPILE_ERROR, RUNNING, FINISHED };
+    static const test_attributes INVALID_TEST_ATTR;
     
     // Boost types 
     using shm_char_allocator = boost::interprocess::allocator<char, boost::interprocess::managed_shared_memory::segment_manager>;
@@ -88,6 +89,7 @@ namespace grader
     static bool is_valid_task_name(const char* name);
   private:
     static test_attributes parse_tests(const char* testsContent, std::size_t testsCLen, grader::task::shm_test_vector& tests);
+    static void terminate_handler();
     
     // Interprocess safe status modifier
     void set_state(state newState);

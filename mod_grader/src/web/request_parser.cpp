@@ -22,6 +22,7 @@
 
 // Project headers
 #include "request_parser.hpp"
+#include "grader_log.hpp"
 
 // STL headers
 #include <algorithm>
@@ -39,7 +40,7 @@
 using namespace std;
 
 namespace grader
-{
+{ 
   request_parser::request_parser(request_rec* r)
   : m_r(r)
   {

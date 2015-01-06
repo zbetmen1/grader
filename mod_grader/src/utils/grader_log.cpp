@@ -1,5 +1,12 @@
+// Project headers
 #include "grader_log.hpp"
 #include "configuration.hpp"
+
+// BOOST headers
+#include <boost/interprocess/sync/interprocess_mutex.hpp>
+#include <boost/interprocess/sync/scoped_lock.hpp>
+using mutex_type = boost::interprocess::interprocess_mutex;
+mutex_type g_lockLog;
 
 using namespace boost::log;
 using namespace std;
@@ -82,5 +89,6 @@ namespace grader
 
 void LOG(const string& msg, grader::severity level)
 {
+  boost::interprocess::scoped_lock<mutex_type> lock(g_lockLog);
   grader::logger::instance().log(msg, level);
 }
