@@ -83,6 +83,8 @@ namespace grader
     configuration(configuration&&) = delete;
     configuration& operator=(configuration&&) = delete;
     
+    ~configuration();
+    
     // Singleton's entry point
     static const configuration& instance() noexcept;
     

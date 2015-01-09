@@ -31,3 +31,10 @@
 mod_grader/.kdev4/
 mod_grader/build/
 mod_grader/mod_grader.kdev4
+dynamic/
+test_dynamic/
+test_mod_grader/.kdev4/
+test_mod_grader/test_mod_grader.kdev4
+test_mod_grader/build/
+
+
