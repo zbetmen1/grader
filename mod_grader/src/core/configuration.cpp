@@ -40,7 +40,6 @@ configuration::configuration()
 
 configuration::~configuration()
 {
-  boost::interprocess::shared_memory_object::remove(get(configuration::SHMEM_NAME)->second.c_str());
 }
 
 configuration::map_type::const_iterator configuration::get(const std::string& key) const noexcept
