@@ -360,7 +360,6 @@ task::test_attributes task::parse_tests(const char* testsContent, std::size_t te
                       subtest::io_from_str(treeItBegin->second.get<string>("<xmlattr>.type", "std")),
                       treeItBegin->second.get("<xmlattr>.path", ""));
       tests.emplace_back(move(in), move(out));
-      const test& tmp = tests.front();
     }
     ++treeItBegin;
   }

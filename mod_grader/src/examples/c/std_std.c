@@ -1,5 +1,4 @@
 #include <stdio.h>
-
 /*
  * This example outputs sum of all numbers given from input and outputs sum to output.
  * Input and output types are present in file name.
