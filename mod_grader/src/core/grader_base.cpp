@@ -52,84 +52,13 @@ grader_base::grader_base()
 void grader_base::initialize(task* t)
 {
   m_task = t;
-  m_dirPath = dir_path();
-  m_executablePath = executable_path();
-  m_sourcePath = source_path() + executable_extension();
-  boost::system::error_code code;
-  boost::filesystem::create_directories(m_dirPath, code);
-  if (boost::system::errc::success != code)
-  {
-    stringstream logmsg;
-    logmsg << "Error when creating directory: " << m_dirPath 
-           << " Message: " << code.message()
-           << " Id: " << m_task->id();
-    LOG(logmsg.str(), grader::ERROR);
-  }
+  m_dirPath = t->dir_path();
+  m_executablePath = t->executable_path() + executable_extension();
+  m_sourcePath = t->source_path();
 }
 
 grader_base::~grader_base()
 {
-  boost::system::error_code code;
-  boost::filesystem::remove_all(m_dirPath, code);
-  if (boost::system::errc::success != code)
-  {
-    stringstream logmsg;
-    logmsg << "Error when removing directory: " << m_dirPath 
-           << " Message: " << code.message()
-           << " Id: " << m_task->id();
-    LOG(logmsg.str(), grader::ERROR);
-  }
-}
-
-string grader_base::dir_path() const
-{
-  const configuration& conf = configuration::instance();
-  auto baseDirIt = conf.get(configuration::BASE_DIR);
-  if (conf.invalid() == baseDirIt)
-  {
-    return "";
-  }
-  
-  auto dpath = baseDirIt->second + "/" + m_task->id();
-  return move(dpath);
-}
-
-string grader_base::source_path() const
-{
-  return m_dirPath + "/" + m_task->file_name();
-}
-
-string grader_base::executable_path() const
-{
-  return m_dirPath + "/" + strip_extension(m_task->file_name());
-}
-
-string grader_base::strip_extension(const string& fileName) const
-{
-  auto pointPos = fileName.find_last_of('.');
-  return fileName.substr(0, pointPos);
-}
-
-string grader_base::get_extension(const string& fileName) const
-{
-  auto pointPos = fileName.find_last_of('.');
-  return fileName.substr(pointPos + 1);
-}
-
-void grader_base::write_to_disk(const string& path, const string& content) const
-{
-  boost::iostreams::mapped_file_params params;
-  params.path = path;
-  params.new_file_size = content.length();
-  params.flags = boost::iostreams::mapped_file::mapmode::readwrite;
-  boost::iostreams::mapped_file mf;
-  mf.open(params);
-  if (mf.is_open())
-    copy(content.cbegin(), content.cend(), mf.data());
-  else 
-  {
-    LOG("Couldn't open memory mapped file for writing: " + path + "Id: " + m_task->id(), grader::ERROR);
-  }
 }
 
 boost::optional<Poco::ProcessHandle> grader_base::run_compile(string& flags, Poco::Pipe& errPipe) const
@@ -144,73 +73,45 @@ boost::optional<Poco::ProcessHandle> grader_base::run_compile(string& flags, Poc
   }
   
   vector<string> pocoFlags{hasCMDFlag ? shellCMDFlag->second : "", flags};
-  // Check if file needs to written to disk
-  if (!should_write_src_file())
+  pocoFlags[1] += " " + m_sourcePath;
+  
+  // Set permissions
+  boost::system::error_code code;
+  boost::filesystem::permissions(m_sourcePath, boost::filesystem::add_perms | boost::filesystem::others_read, code);
+  if (boost::system::errc::success != code)
   {
-    Poco::Pipe stdinPipe;
-    auto shell = conf.get(configuration::SHELL);
-    if (conf.invalid() != shell)
-    {
-      auto ph = Poco::Process::launch(shell->second, pocoFlags, &stdinPipe, nullptr, &errPipe);
-      Poco::PipeOutputStream stdinPipeStream(stdinPipe);
-      stdinPipeStream << m_task->file_content();
-      stdinPipeStream.close();
-      return ph;
-    }
-    else 
-    {
-      stringstream logmsg;
-      logmsg << "Shell not present in configuration, program compilation not possible! "
-             << "Function: run_compile" 
-             << "Id: " << m_task->id();
-      LOG(logmsg.str(), grader::ERROR);
-      return boost::optional<Poco::ProcessHandle>{};
-    }
+    stringstream logmsg;
+    logmsg << "Couldn't set read privileges for others on source file: " << m_sourcePath
+            << " Message: " << code.message() 
+            << " Id: " << m_task->id();
+    LOG(logmsg.str(), grader::ERROR);
+    return boost::optional<Poco::ProcessHandle>{};
+  }
+  boost::filesystem::permissions(m_dirPath, boost::filesystem::add_perms | boost::filesystem::others_write, code);
+  if (boost::system::errc::success != code)
+  {
+    stringstream logmsg;
+    logmsg << "Couldn't set read privileges for others on source file directory: " << m_dirPath
+            << " Message: " << code.message() 
+            << " Id: " << m_task->id();
+    LOG(logmsg.str(), grader::ERROR);
+    return boost::optional<Poco::ProcessHandle>{};
+  }
+  
+  // Launch compilation
+  auto shell = conf.get(configuration::SHELL);
+  if (conf.invalid() != shell)
+  {
+    return Poco::Process::launch(shell->second, pocoFlags, nullptr, nullptr, &errPipe);
   }
   else 
   {
-    // Write file to disk first and add file as a flag
-    write_to_disk(m_sourcePath, m_task->file_content());
-    pocoFlags[1] += " " + m_sourcePath;
-    
-    // Set permissions
-    boost::system::error_code code;
-    boost::filesystem::permissions(m_sourcePath, boost::filesystem::add_perms | boost::filesystem::others_read, code);
-    if (boost::system::errc::success != code)
-    {
-      stringstream logmsg;
-      logmsg << "Couldn't set read privileges for others on source file: " << m_sourcePath
-             << " Message: " << code.message() 
-             << " Id: " << m_task->id();
-      LOG(logmsg.str(), grader::ERROR);
-      return boost::optional<Poco::ProcessHandle>{};
-    }
-    boost::filesystem::permissions(m_dirPath, boost::filesystem::add_perms | boost::filesystem::others_write, code);
-    if (boost::system::errc::success != code)
-    {
-      stringstream logmsg;
-      logmsg << "Couldn't set read privileges for others on source file directory: " << m_dirPath
-             << " Message: " << code.message() 
-             << " Id: " << m_task->id();
-      LOG(logmsg.str(), grader::ERROR);
-      return boost::optional<Poco::ProcessHandle>{};
-    }
-    
-    // Launch compilation
-    auto shell = conf.get(configuration::SHELL);
-    if (conf.invalid() != shell)
-    {
-      return Poco::Process::launch(shell->second, pocoFlags, nullptr, nullptr, &errPipe);
-    }
-    else 
-    {
-      stringstream logmsg;
-      logmsg << "Shell not present in configuration, program compilation not possible! "
-             << "Function: run_compile" 
-             << "Id: " << m_task->id();
-      LOG(logmsg.str(), grader::ERROR);
-      return boost::optional<Poco::ProcessHandle>{};
-    }
+    stringstream logmsg;
+    logmsg << "Shell not present in configuration, program compilation not possible! "
+            << "Function: run_compile" 
+            << "Id: " << m_task->id();
+    LOG(logmsg.str(), grader::ERROR);
+    return boost::optional<Poco::ProcessHandle>{};
   }
 }
 
@@ -219,10 +120,6 @@ bool grader_base::compile(string& compileErr) const
   // Check if we need to compile at all
   if (!is_compilable())
   {
-    if (should_write_src_file())
-    {
-      write_to_disk(m_sourcePath, m_task->file_content());
-    }
     return true;
   }
   
@@ -527,7 +424,7 @@ vector<string> grader_base::create_file_input(const subtest& in) const
     return vector<string>{};
   }
   string absolutePath = m_dirPath + '/' + path;
-  write_to_disk(absolutePath, in.content().c_str());
+  m_task->write_to_disk(absolutePath, in.content().c_str());
   boost::system::error_code code;
   boost::filesystem::permissions(absolutePath, boost::filesystem::add_perms | boost::filesystem::others_read, code);
   if (boost::system::errc::success != code)

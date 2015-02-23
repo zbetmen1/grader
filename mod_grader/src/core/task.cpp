@@ -11,6 +11,7 @@
 #include <string>
 #include <functional>
 #include <csetjmp>
+#include <fstream>
 
 // BOOST headers
 #include <boost/interprocess/managed_shared_memory.hpp>
@@ -25,19 +26,20 @@
 #include <boost/property_tree/ptree.hpp>
 
 #include <boost/filesystem.hpp>
+#include <boost/iostreams/device/mapped_file.hpp>
 
 using namespace std;
 using namespace grader;
 
 task::mutex_type s_lock;
 const task::test_attributes task::INVALID_TEST_ATTR{0, 0, ""};
+const char* task::TESTS_FILE_NAME = "tests.xml";
 
 jmp_buf g_saveStateBeforeTerminate;
 
-task::task(const char* fileName, std::size_t fnLen, const char* fileContent, std::size_t fcLen, 
-            shm_test_vector&& tests, const boost::uuids::uuid& id, size_t memoryBytes, size_t timeMS, const string& language)
-: m_fileName(shm().get_segment_manager()), m_fileContent(shm().get_segment_manager()), m_tests(boost::move(tests)), 
-m_memoryBytes(memoryBytes), m_timeMS(timeMS), m_state(state::WAITING), m_status(shm().get_segment_manager())
+task::task(const char* fileName, std::size_t fnLen, const char* fileContent, std::size_t fcLen, const char* testsContents, 
+           std::size_t testsCLen, const boost::uuids::uuid& id)
+: m_fileName(shm().get_segment_manager()), m_state(state::WAITING), m_status(shm().get_segment_manager())
 {
   // Correctly handle case when client sent relative file path (extract file name)
   using path_t = boost::filesystem::path;
@@ -67,24 +69,54 @@ m_memoryBytes(memoryBytes), m_timeMS(timeMS), m_state(state::WAITING), m_status(
     return;
   }
   
-  // Copy file content
-  m_fileContent.reserve(fcLen + 1);
-  m_fileContent.insert(m_fileContent.begin(), fileContent, fileContent + fcLen);
-  
   // Copy uuid
   const string tmp = boost::lexical_cast<std::string>(id);
   copy(tmp.cbegin(), tmp.cend(), m_id);
   m_id[tmp.size()] = '\0';
   
-  // Copy language
-  copy(language.cbegin(), language.cend(), m_language);
-  m_language[language.size()] = '\0';
+  // Create task directory
+  boost::system::error_code code;
+  string dirPath = dir_path();
+  boost::filesystem::create_directories(dirPath, code);
+  if (boost::system::errc::success != code)
+  {
+    stringstream logmsg;
+    logmsg << "Error when creating directory: " << dirPath
+           << " Message: " << code.message()
+           << " Id: " << m_id;
+    LOG(logmsg.str(), grader::ERROR);
+    set_state(state::INVALID);
+    return;
+  }
+  
+  // Write source to disk
+  string srcContent{fileContent, fileContent + fcLen};
+  write_to_disk(source_path(), srcContent);
+  
+  // Write test file to disk
+  string testsContent{testsContents, testsContents + testsCLen};
+  write_to_disk(dirPath + '/' + TESTS_FILE_NAME, testsContent);
+}
+
+task::~task()
+{
+  boost::system::error_code code;
+  string dirPath = dir_path();
+  boost::filesystem::remove_all(dirPath, code);
+  if (boost::system::errc::success != code)
+  {
+    stringstream logmsg;
+    logmsg << "Error when removing directory: " << dirPath
+           << " Message: " << code.message()
+           << " Id: " << m_id;
+    LOG(logmsg.str(), grader::ERROR);
+  }
 }
 
 task::task(task&& oth)
-: m_fileName(boost::move(oth.m_fileName)), m_fileContent(boost::move(oth.m_fileContent)), m_tests(boost::move(oth.m_tests)),
-m_memoryBytes(oth.m_memoryBytes), m_timeMS(oth.m_timeMS), m_state(oth.m_state), m_status(boost::move(oth.m_status))
+: m_fileName(boost::move(oth.m_fileName)), m_state(oth.m_state), m_status(boost::move(oth.m_status))
 {
+  copy(oth.m_id, oth.m_id + UUID_BYTES, m_id);
 }
 
 task& task::operator=(task&& oth)
@@ -92,10 +124,7 @@ task& task::operator=(task&& oth)
   if (&oth != this)
   {
     m_fileName = boost::move(oth.m_fileName);
-    m_fileContent = boost::move(oth.m_fileContent);
-    m_tests = boost::move(oth.m_tests);
-    m_memoryBytes = oth.m_memoryBytes;
-    m_timeMS = oth.m_timeMS;
+    copy(oth.m_id, oth.m_id + UUID_BYTES, m_id);
     m_state = oth.m_state;
     m_status = boost::move(oth.m_status);
   }
@@ -104,15 +133,22 @@ task& task::operator=(task&& oth)
 
 void task::run_all()
 {
+  // Parse tests
+  vector<test> tests;
+  auto memTimeLang = parse_tests(read_from_disk(dir_path() + '/' + TESTS_FILE_NAME) , tests);
+//   size_t memory = get<0>(memTimeLang);
+//   size_t time = get<0>(memTimeLang);
+  string language = get<2>(memTimeLang);
+  
   // Fetch grader informations for programming language
   const configuration& conf = configuration::instance();
-  auto graderInfo = conf.get_grader(m_language);
+  auto graderInfo = conf.get_grader(language);
   
   // Check if grader for this language doesn't exists in config.xml
   if (configuration::INVALID_GR_INFO == graderInfo)
   {
     stringstream logmsg;
-    logmsg << "Couldn't find grader for language: " << m_language << " in config.xml.";
+    logmsg << "Couldn't find grader for language: " << language << " in config.xml.";
     logmsg << "Task id: " << m_id;
     LOG(logmsg.str(), grader::ERROR);
     set_state(state::INVALID);
@@ -204,8 +240,8 @@ void task::run_all()
   // Run tests
   set_state(task::state::RUNNING);
   vector<bool> testResults;
-  testResults.reserve(m_tests.size());
-  for (const auto& t : m_tests)
+  testResults.reserve(tests.size());
+  for (const auto& t : tests)
   {
     bool res = graderObj->run_test(t);
     testResults.push_back(res);
@@ -250,16 +286,10 @@ const char* task::status() const
 task* task::create_task(const char* fileName, std::size_t fnLen, const char* fileContent, 
                         std::size_t fcLen, const char* testsContent, std::size_t testsCLen)
 {
-  // Generate uuid
+  // Generate uuid and create task
   auto uuid = boost::uuids::random_generator()();
-  shm_test_vector tests(shm().get_segment_manager());
-  auto memTimeLang = parse_tests(testsContent, testsCLen, tests);
-  if (INVALID_TEST_ATTR == memTimeLang) return nullptr;
   return shm().construct<task>(boost::uuids::to_string(uuid).c_str())(fileName, fnLen, fileContent, 
-                                                                      fcLen, move(tests), uuid, 
-                                                                      get<0>(memTimeLang), get<1>(memTimeLang),
-                                                                      get<2>(memTimeLang)
-                                                                      );
+                                                                      fcLen, testsContent, testsCLen, uuid);
 }
 
 bool task::is_valid_task_name(const char* name)
@@ -271,12 +301,12 @@ bool task::is_valid_task_name(const char* name)
            interpreter.get() == stringstream::traits_type::eof();
 }
 
-task::test_attributes task::parse_tests(const char* testsContent, std::size_t testsCLen, task::shm_test_vector& tests)
+task::test_attributes task::parse_tests(const string& testsStr, vector<test>& tests)
 {
   // Read xml into property tree
   using namespace boost::property_tree;
   ptree pt;
-  istringstream testsInput(string(testsContent, testsContent + testsCLen));
+  istringstream testsInput(testsStr);
   try 
   {
     xml_parser::read_xml(testsInput, pt, xml_parser::no_comments);
@@ -382,4 +412,62 @@ task::state task::get_state() const
 {
   boost::interprocess::scoped_lock<mutex_type> lock(s_lock);
   return m_state;
+}
+
+string task::dir_path() const
+{
+  const configuration& conf = configuration::instance();
+  auto baseDirIt = conf.get(configuration::BASE_DIR);
+  if (conf.invalid() == baseDirIt)
+  {
+    return "";
+  }
+  
+  auto dpath = baseDirIt->second + "/" + m_id;
+  return move(dpath);
+}
+
+string task::source_path() const
+{
+  return dir_path() + "/" + m_fileName.c_str();
+}
+
+string task::executable_path() const
+{
+  return dir_path() + "/" + strip_extension(m_fileName.c_str());
+}
+
+string task::strip_extension(const string& fileName) const
+{
+  auto pointPos = fileName.find_last_of('.');
+  return fileName.substr(0, pointPos);
+}
+
+string task::get_extension(const string& fileName) const
+{
+  auto pointPos = fileName.find_last_of('.');
+  return fileName.substr(pointPos + 1);
+}
+
+void task::write_to_disk(const string& path, const string& content) const
+{
+  boost::iostreams::mapped_file_params params;
+  params.path = path;
+  params.new_file_size = content.length();
+  params.flags = boost::iostreams::mapped_file::mapmode::readwrite;
+  boost::iostreams::mapped_file mf;
+  mf.open(params);
+  if (mf.is_open())
+    copy(content.cbegin(), content.cend(), mf.data());
+  else 
+  {
+    LOG("Couldn't open memory mapped file for writing: " + path + "Id: " + m_id, grader::ERROR);
+  }
+}
+
+string task::read_from_disk(const string& path) const
+{
+  ifstream tests{path.c_str()};
+  string content{istreambuf_iterator<char>{tests}, istreambuf_iterator<char>{}};
+  return move(content);
 }

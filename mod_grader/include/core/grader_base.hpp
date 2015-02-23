@@ -64,7 +64,6 @@ namespace grader
     virtual void compiler_flags(std::string& flags) const = 0;
     virtual const char* compiler_filename_flag() const = 0;
     virtual const char* compiler_stdin_flag() const { return ""; }
-    virtual bool should_write_src_file() const = 0;
     virtual const char* executable_extension() const { return ""; };
     
     // Different languages require different ways to start process (for example Java uses 'java StartMe.class')
@@ -74,13 +73,6 @@ namespace grader
                                                          Poco::Pipe* fromExecutable) const;
     
   private:
-    // Utilities
-    std::string strip_extension(const std::string& fileName) const;
-    std::string get_extension(const std::string& fileName) const;
-    std::string dir_path() const;
-    std::string source_path() const;
-    std::string executable_path() const;
-    void write_to_disk(const std::string& path, const std::string& content) const;
     boost::optional<Poco::ProcessHandle> run_compile(std::string& flags, Poco::Pipe& errPipe) const;
     
     // Run test cases
