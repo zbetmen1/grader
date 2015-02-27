@@ -283,6 +283,12 @@ const char* task::status() const
   return "";
 }
 
+task::state task::get_state() const
+{
+  boost::interprocess::scoped_lock<mutex_type> lock(s_lock);
+  return m_state;
+}
+
 task* task::create_task(const char* fileName, std::size_t fnLen, const char* fileContent, 
                         std::size_t fcLen, const char* testsContent, std::size_t testsCLen)
 {
@@ -408,12 +414,6 @@ void task::set_state(task::state newState)
   m_state = newState;
 }
 
-task::state task::get_state() const
-{
-  boost::interprocess::scoped_lock<mutex_type> lock(s_lock);
-  return m_state;
-}
-
 string task::dir_path() const
 {
   const configuration& conf = configuration::instance();
@@ -449,7 +449,7 @@ string task::get_extension(const string& fileName) const
   return fileName.substr(pointPos + 1);
 }
 
-void task::write_to_disk(const string& path, const string& content) const
+void task::write_to_disk(const string& path, const string& content)
 {
   boost::iostreams::mapped_file_params params;
   params.path = path;
@@ -461,11 +461,11 @@ void task::write_to_disk(const string& path, const string& content) const
     copy(content.cbegin(), content.cend(), mf.data());
   else 
   {
-    LOG("Couldn't open memory mapped file for writing: " + path + "Id: " + m_id, grader::ERROR);
+    LOG("Couldn't open memory mapped file for writing: " + path, grader::ERROR);
   }
 }
 
-string task::read_from_disk(const string& path) const
+string task::read_from_disk(const string& path)
 {
   ifstream tests{path.c_str()};
   string content{istreambuf_iterator<char>{tests}, istreambuf_iterator<char>{}};
