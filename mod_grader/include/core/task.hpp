@@ -36,6 +36,8 @@ namespace grader
    * and task status message. Since its creation task is residing in interprocess memory waiting to be 
    * resolved. Its unique identifier is also a handle to the task that can be used to get task from interprocess
    * memory.
+   * 
+   * @addtogroup Core
    */
   class task
   {
@@ -98,6 +100,9 @@ namespace grader
     
     /**< Status is JSON encoded message to be returned when status is queried from Web module. */
     shm_string m_status;  
+    
+    /**< Mutex to protect interprocess access to task info. */ 
+    mutable mutex_type m_lock;
   public:
     
     //////////////////////////////////////////////////////////////////////////////

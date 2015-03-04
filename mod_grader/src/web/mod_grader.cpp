@@ -4,6 +4,7 @@
 #include "task.hpp"
 #include "configuration.hpp"
 #include "grader_log.hpp"
+#include "interprocess_queue.hpp"
 
 // STL headers
 #include <cstring>
@@ -16,6 +17,7 @@
 // BOOST headers
 #include <boost/algorithm/string.hpp>
 #include <boost/interprocess/sync/interprocess_mutex.hpp>
+#include <boost/interprocess/offset_ptr.hpp>
 #include <boost/filesystem.hpp>
 
 // Apache headers
@@ -28,6 +30,10 @@
 
 using namespace std;
 using namespace grader;
+
+template <typename T>
+using shm_ptr = boost::interprocess::offset_ptr<T>;
+using task_queue = interprocess_queue<shm_ptr<task>>;
 
 EXTERN_C void register_hooks(apr_pool_t* /*pool*/)
 {
@@ -61,6 +67,8 @@ char* task_id_from_url(request_rec* r)
 EXTERN_C int grader_handler(request_rec* r)
 {
   if (!r->handler || strcmp(r->handler, "grader")) return (DECLINED);
+  
+  task_queue* taskQueue = grader::shm().find_or_construct<task_queue>("TaskQueue")(shm());
   
   // Set signal handler to avoid zombie processes
   signal(SIGCHLD, &avoid_zombie_handler);
@@ -115,26 +123,8 @@ EXTERN_C int grader_handler(request_rec* r)
     }
     
     LOG(apr_pstrcat(r->pool, "Created task with id: ", newTask->id(), nullptr), grader::DEBUG);
-    int pid = fork();
-    if (-1 == pid)
-    {
-      stringstream logmsg;
-      logmsg << "Forking child process to do task failed! Error msg: "
-             <<  strerror(errno);
-      LOG(logmsg.str(), grader::ERROR);
-      return HTTP_INTERNAL_SERVER_ERROR;
-    }
-    
-    // Child process
-    if (0 == pid)
-    {
-      newTask->run_all();
-      exit(EXIT_SUCCESS);
-    }
-    else 
-    { // Parent process
-      ap_rprintf(r, "%s", newTask->id());
-    }
+    taskQueue->push(newTask);
+    ap_rprintf(r, "%s", newTask->id());
   }
   else if (r->method_number == M_DELETE)
   {

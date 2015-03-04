@@ -30,6 +30,10 @@ set_target_properties(mod_grader PROPERTIES COMPILE_FLAGS "-pipe -g -O2 -fstack-
 # Deploy Apache module (note that you must implement this script on your own machine)
 add_custom_command(TARGET mod_grader POST_BUILD 
                    COMMAND deploy_grader.sh ${PROJECT_SOURCE_DIR}/build/)
+
+# Compile grader worker
+add_executable(grader_worker src/core/grader_worker.cpp)
+target_link_libraries(grader_worker ${Boost_LIBRARIES} grader)
                    
 # Compile grader_c
 add_library(grader_c SHARED src/plugins/grader_c.cpp)

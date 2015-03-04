@@ -31,7 +31,6 @@
 using namespace std;
 using namespace grader;
 
-task::mutex_type s_lock;
 const task::test_attributes task::INVALID_TEST_ATTR{0, 0, ""};
 const char* task::TESTS_FILE_NAME = "tests.xml";
 
@@ -265,7 +264,7 @@ void task::run_all()
 
 const char* task::status() const
 {
-  boost::interprocess::scoped_lock<mutex_type> lock(s_lock);
+  boost::interprocess::scoped_lock<mutex_type> lock(m_lock);
   switch(m_state)
   {
     case state::INVALID:
@@ -285,7 +284,7 @@ const char* task::status() const
 
 task::state task::get_state() const
 {
-  boost::interprocess::scoped_lock<mutex_type> lock(s_lock);
+  boost::interprocess::scoped_lock<mutex_type> lock(m_lock);
   return m_state;
 }
 
@@ -410,7 +409,7 @@ void task::terminate_handler()
 
 void task::set_state(task::state newState)
 {
-  boost::interprocess::scoped_lock<mutex_type> lock(s_lock);
+  boost::interprocess::scoped_lock<mutex_type> lock(m_lock);
   m_state = newState;
 }
 
