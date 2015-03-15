@@ -3,6 +3,8 @@
 #include "configuration.hpp"
 #include "grader_base.hpp"
 #include "shared_lib.hpp"
+#include "shared_memory.hpp"
+#include "grader_log.hpp"
 
 // STL headers
 #include <algorithm>
@@ -38,7 +40,7 @@ jmp_buf g_saveStateBeforeTerminate;
 
 task::task(const char* fileName, std::size_t fnLen, const char* fileContent, std::size_t fcLen, const char* testsContents, 
            std::size_t testsCLen, const boost::uuids::uuid& id)
-: m_fileName(shm().get_segment_manager()), m_state(state::WAITING), m_status(shm().get_segment_manager())
+: m_fileName(shared_memory::instance().get_segment_manager()), m_state(state::WAITING), m_status(shared_memory::instance().get_segment_manager())
 {
   // Correctly handle case when client sent relative file path (extract file name)
   using path_t = boost::filesystem::path;
@@ -49,9 +51,7 @@ task::task(const char* fileName, std::size_t fnLen, const char* fileContent, std
   } 
   catch (const exception& e) 
   {
-    stringstream logmsg;
-    logmsg << "Invalid file name! Task id: " << id;
-    LOG(logmsg.str(), grader::ERROR);
+    glog::error() << "Invalid file name! Task id: " << id << '\n';
     set_state(state::INVALID);
     return;
   }
@@ -61,9 +61,7 @@ task::task(const char* fileName, std::size_t fnLen, const char* fileContent, std
   }
   else 
   {
-    stringstream logmsg;
-    logmsg << "Bad file name in task constructor: " << tmpPath.c_str() << " task id: " << id;
-    LOG(logmsg.str(), grader::ERROR);
+    glog::error() << "Bad file name in task constructor: " << tmpPath.c_str() << " task id: " << id << '\n';
     set_state(state::INVALID);
     return;
   }
@@ -79,11 +77,9 @@ task::task(const char* fileName, std::size_t fnLen, const char* fileContent, std
   boost::filesystem::create_directories(dirPath, code);
   if (boost::system::errc::success != code)
   {
-    stringstream logmsg;
-    logmsg << "Error when creating directory: " << dirPath
+    glog::error() << "Error when creating directory: " << dirPath
            << " Message: " << code.message()
-           << " Id: " << m_id;
-    LOG(logmsg.str(), grader::ERROR);
+           << " Id: " << m_id << '\n';
     set_state(state::INVALID);
     return;
   }
@@ -104,11 +100,9 @@ task::~task()
   boost::filesystem::remove_all(dirPath, code);
   if (boost::system::errc::success != code)
   {
-    stringstream logmsg;
-    logmsg << "Error when removing directory: " << dirPath
+    glog::error() << "Error when removing directory: " << dirPath
            << " Message: " << code.message()
-           << " Id: " << m_id;
-    LOG(logmsg.str(), grader::ERROR);
+           << " Id: " << m_id << '\n';
   }
 }
 
@@ -146,10 +140,8 @@ void task::run_all()
   // Check if grader for this language doesn't exists in config.xml
   if (configuration::INVALID_GR_INFO == graderInfo)
   {
-    stringstream logmsg;
-    logmsg << "Couldn't find grader for language: " << language << " in config.xml.";
-    logmsg << "Task id: " << m_id;
-    LOG(logmsg.str(), grader::ERROR);
+    glog::error() << "Couldn't find grader for language: " << language << " in config.xml."
+                  << "Task id: " << m_id << '\n';
     set_state(state::INVALID);
     return;
   }
@@ -158,10 +150,8 @@ void task::run_all()
   auto baseLibPathIt = conf.get(configuration::LIB_DIR);
   if (conf.invalid() == baseLibPathIt)
   {
-    stringstream logmsg;
-    logmsg << "Couldn't find entry for directory where all grader libraries are in config.xml.";
-    logmsg << "Task id: " << m_id;
-    LOG(logmsg.str(), grader::ERROR);
+    glog::error() << "Couldn't find entry for directory where all grader libraries are in config.xml."
+                  << "Task id: " << m_id << '\n';
     set_state(state::INVALID);
     return;
   }
@@ -176,12 +166,9 @@ void task::run_all()
   std::terminate_handler defaultHandler = set_terminate(&task::terminate_handler);
   if (setjmp(g_saveStateBeforeTerminate) != 0)
   {
-    // Log error
-    stringstream logmsg;
-    logmsg << "Uncaught exception raised from plugin! Plugin library on path: " << libPath
-           << " Task id: " << m_id
-           << " Terminating task process...";
-    LOG(logmsg.str(), grader::FATAL);
+    glog::fatal() << "Uncaught exception raised from plugin! Plugin library on path: " << libPath
+                  << " Task id: " << m_id
+                  << " Terminating task process...\n";
     
     // Set task state so it can be deleted
     set_state(state::INVALID);
@@ -198,10 +185,8 @@ void task::run_all()
   } 
   catch (const dynamic::shared_lib_load_failed& e) 
   {
-    stringstream logmsg;
-    logmsg << "Loading shared library on path: " << libPath << " failed. ";
-    logmsg << "Reason: " << e.what() << " Task id: " << m_id;
-    LOG(logmsg.str(), grader::ERROR);
+    glog::error() << "Loading shared library on path: " << libPath << " failed. "
+           << "Reason: " << e.what() << " Task id: " << m_id << '\n';
     set_state(state::INVALID);
     return;
   }
@@ -210,12 +195,10 @@ void task::run_all()
   auto graderObj = lib->make_object<grader_base>(configuration::get_grader_name(graderInfo));
   if (!graderObj)
   {
-    stringstream logmsg;
-    logmsg << "Failed to create grader object from library."
-           << " Library path: " << libPath
-           << " Grader name: " << configuration::get_grader_name(graderInfo)
-           << " Task id: " << m_id;
-    LOG(logmsg.str(), grader::ERROR);
+    glog::error() << "Failed to create grader object from library."
+                  << " Library path: " << libPath
+                  << " Grader name: " << configuration::get_grader_name(graderInfo)
+                  << " Task id: " << m_id << '\n';
     set_state(state::INVALID);
     return;
   }
@@ -293,7 +276,7 @@ task* task::create_task(const char* fileName, std::size_t fnLen, const char* fil
 {
   // Generate uuid and create task
   auto uuid = boost::uuids::random_generator()();
-  return shm().construct<task>(boost::uuids::to_string(uuid).c_str())(fileName, fnLen, fileContent, 
+  return shared_memory::instance().construct<task>(boost::uuids::to_string(uuid).c_str(), fileName, fnLen, fileContent, 
                                                                       fcLen, testsContent, testsCLen, uuid);
 }
 
@@ -318,10 +301,8 @@ task::test_attributes task::parse_tests(const string& testsStr, vector<test>& te
   } 
   catch (const xml_parser::xml_parser_error& e) 
   {
-    stringstream logmsg;
-    logmsg << "Couldn't parse tests content (check if tests are xml valid). "
-           << "Error message: " << e.what();
-    LOG(logmsg.str(), grader::ERROR);
+    glog::error() << "Couldn't parse tests content (check if tests are xml valid). "
+           << "Error message: " << e.what() << '\n';
     return INVALID_TEST_ATTR;
   }
   
@@ -329,7 +310,7 @@ task::test_attributes task::parse_tests(const string& testsStr, vector<test>& te
   auto rootOpt = pt.get_child_optional("test");
   if (!rootOpt)
   {
-    LOG("Bad config.xml file, there should be root element named 'test'.", grader::ERROR);
+    glog::error() << "Bad config.xml file, there should be root element named 'test'.\n";
     return INVALID_TEST_ATTR;
   }
   auto root = *rootOpt;
@@ -338,17 +319,17 @@ task::test_attributes task::parse_tests(const string& testsStr, vector<test>& te
   string language = root.get<string>("<xmlattr>.language", "");
   if (0 == memoryBytes)
   {
-    LOG("No memory constraint as attribute in 'test' element.", grader::ERROR);
+    glog::error() << "No memory constraint as attribute in 'test' element.\n";
     return INVALID_TEST_ATTR;
   }
   if (0 == timeMilliseconds)
   {
-    LOG("No time constraint as attribute in 'test' element.", grader::ERROR);
+    glog::error() << "No time constraint as attribute in 'test' element.\n";
     return INVALID_TEST_ATTR;
   }
   if ("" == language)
   {
-    LOG("No programming language specified as attribute in 'test' element.", grader::ERROR);
+    glog::error() << "No programming language specified as attribute in 'test' element.\n";
     return INVALID_TEST_ATTR;
   }
   
@@ -367,7 +348,7 @@ task::test_attributes task::parse_tests(const string& testsStr, vector<test>& te
     // Handle input
     if ("input" != treeItBegin->first)
     {
-      LOG("Invalid xml format! Expected 'input'!", grader::ERROR);
+      glog::error() << "Invalid xml format! Expected 'input'!\n";
       return INVALID_TEST_ATTR;
     }
     else 
@@ -381,12 +362,12 @@ task::test_attributes task::parse_tests(const string& testsStr, vector<test>& te
       ++treeItBegin;
       if (treeItBegin == treeItEnd)
       {
-        LOG("Invalid xml format! Expected 'output' element after 'input'!", grader::ERROR);
+        glog::error() << "Invalid xml format! Expected 'output' element after 'input'!\n";
         return INVALID_TEST_ATTR;
       }
       if ("output" != treeItBegin->first)
       {
-        LOG("Invalid xml format! Expected 'output' element!", grader::ERROR);
+        glog::error() << "Invalid xml format! Expected 'output' element!\n";
         return INVALID_TEST_ATTR; 
       }
       
@@ -460,7 +441,7 @@ void task::write_to_disk(const string& path, const string& content)
     copy(content.cbegin(), content.cend(), mf.data());
   else 
   {
-    LOG("Couldn't open memory mapped file for writing: " + path, grader::ERROR);
+    glog::error() << "Couldn't open memory mapped file for writing: " << path << '\n';
   }
 }
 

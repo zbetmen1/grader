@@ -98,20 +98,6 @@ namespace grader
     void load_config();
   };
   
-  boost::interprocess::managed_shared_memory& shm();
-  
-  template <typename T>
-  void shm_destroy(const char* name)
-  {
-    shm().destroy<T>(name);
-  }
-  
-  template <typename T>
-  T* shm_find(const char* name)
-  {
-    auto found = shm().find<T>(name);
-    return 0 != found.second ? found.first : nullptr;
-  }
 }
 
 #endif // CONFIGURATION_HPP

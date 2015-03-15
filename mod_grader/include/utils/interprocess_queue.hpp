@@ -1,6 +1,8 @@
 #ifndef INTERPROCESS_QUEUE
 #define INTERPROCESS_QUEUE
 
+#include "shared_memory.hpp"
+
 // STL headers
 #include <cstddef>
 
@@ -75,7 +77,7 @@ namespace grader
     // Creators and destructor
     //////////////////////////////////////////////////////////////////////////////
     
-    explicit interprocess_queue(shm_type& memory);
+    explicit interprocess_queue(shared_memory& memory);
     explicit interprocess_queue(const shm_deque& queue);
     explicit interprocess_queue(shm_deque&& queue);
     
@@ -96,7 +98,7 @@ namespace grader
   };
 
   template <typename T>
-  interprocess_queue<T>::interprocess_queue(interprocess_queue<T>::shm_type& memory)
+  interprocess_queue<T>::interprocess_queue(grader::shared_memory& memory)
   : m_data(memory.get_segment_manager())
   {}
   

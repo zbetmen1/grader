@@ -5,6 +5,8 @@
 #include "configuration.hpp"
 #include "grader_log.hpp"
 #include "interprocess_queue.hpp"
+#include "grader_pool.hpp"
+#include "shared_memory.hpp"
 
 // STL headers
 #include <cstring>
@@ -13,6 +15,8 @@
 #include <fstream>
 #include <cerrno>
 #include <string>
+#include <cstddef>
+#include <atomic>
 
 // BOOST headers
 #include <boost/algorithm/string.hpp>
@@ -49,10 +53,8 @@ char* task_id_from_url(request_rec* r)
     p = boost::filesystem::path(r->filename);
   } catch(const exception& e)
   {
-    stringstream logmsg;
-    logmsg << "Invalid file name from request. File name: " << r->filename
-           << " Error message: " << e.what();
-    LOG(logmsg.str(), grader::ERROR);
+    glog::error() << "Invalid file name from request. File name: " << r->filename
+                  << " Error message: " << e.what() << '\n';
     return nullptr;
   }
   
@@ -67,22 +69,17 @@ char* task_id_from_url(request_rec* r)
 EXTERN_C int grader_handler(request_rec* r)
 {
   if (!r->handler || strcmp(r->handler, "grader")) return (DECLINED);
-  
-  task_queue* taskQueue = grader::shm().find_or_construct<task_queue>("TaskQueue")(shm());
-  
-  // Set signal handler to avoid zombie processes
-  signal(SIGCHLD, &avoid_zombie_handler);
-  
+  grader_pool& GRADER_POOL = grader_pool::instance();
   /* Dispatch on type of request, when request type is POST
    assume that we have new grading to do, but if request type
    is GET assume that clients are asking for grading results */
   if (r->method_number == M_GET)
   {
-    LOG(apr_pstrcat(r->pool, "Accepted request; method: GET address: ", r->filename, nullptr), grader::DEBUG);
+    glog::debug() << "Accepted request; method: GET address: " << r->filename << '\n';
     char* taskId = task_id_from_url(r);
     if (taskId && task::is_valid_task_name(taskId))
     {
-      auto foundTask = shm_find<task>(taskId);
+      auto foundTask = shared_memory::instance().find<task>(taskId);
       if (foundTask)
       {
         ap_rprintf(r, "%s", foundTask->status());
@@ -99,15 +96,13 @@ EXTERN_C int grader_handler(request_rec* r)
   }
   else if (r->method_number == M_POST)
   {
-    LOG(apr_pstrcat(r->pool, "Accepted request; method: POST address: ", r->filename, nullptr), grader::DEBUG);
+    glog::debug() << "Accepted request; method: POST address: " << r->filename << '\n';
     request_parser parser(r);
     request_parser::parsed_data data;
     int httpCode = parser.parse(data);
     if (OK != httpCode)
     {
-      stringstream logmsg;
-      logmsg << "Bad POST request. Http code: " << httpCode;
-      LOG(logmsg.str(), grader::ERROR);
+      glog::error() << "Bad POST request. Http code: " << httpCode << '\n';
       return httpCode;
     }
     task* newTask = task::create_task(get<request_parser::FILE_NAME>(data),
@@ -118,26 +113,26 @@ EXTERN_C int grader_handler(request_rec* r)
                                       get<request_parser::TESTS_CONTENT_LEN>(data));
     if (!newTask || task::state::INVALID == newTask->get_state())
     {
-      shm_destroy<task>(newTask->id());
+      shared_memory::instance().destroy<task>(newTask->id());
       return HTTP_INTERNAL_SERVER_ERROR;
     }
     
-    LOG(apr_pstrcat(r->pool, "Created task with id: ", newTask->id(), nullptr), grader::DEBUG);
-    taskQueue->push(newTask);
+    glog::debug() << "Created task with id: "<< newTask->id() << '\n';
+    GRADER_POOL.submit(newTask);
     ap_rprintf(r, "%s", newTask->id());
   }
   else if (r->method_number == M_DELETE)
   {
-    LOG(apr_pstrcat(r->pool, "Accepted request; method: DELETE address: ", r->filename, nullptr), grader::DEBUG);
+    glog::debug() << "Accepted request; method: DELETE address: " << r->filename << '\n';
     char* taskId = task_id_from_url(r);
     if (taskId && task::is_valid_task_name(taskId))
     {
-      auto foundTask = shm_find<task>(taskId);
+      auto foundTask = shared_memory::instance().find<task>(taskId);
       if (foundTask && (task::state::FINISHED == foundTask->get_state() ||
                         task::state::COMPILE_ERROR == foundTask->get_state() ||
                         task::state::INVALID == foundTask->get_state()))
       {
-        shm_destroy<task>(taskId);
+        shared_memory::instance().destroy<task>(taskId);
         ap_rprintf(r, "{ \"STATE\" : \"DESTROYED\" }");
       }
       else 
@@ -152,14 +147,8 @@ EXTERN_C int grader_handler(request_rec* r)
   }
   else 
   {
-    LOG(apr_pstrcat(r->pool, "Unsupported request method; address: ", r->filename, nullptr), grader::WARNING);
+    glog::warning() << "Unsupported request method; address: " << r->filename << '\n';
     return (HTTP_NOT_FOUND);
   }
   return OK;
-}
-
-void avoid_zombie_handler(int)
-{
-  int childStatus;
-  wait(&childStatus);
 }

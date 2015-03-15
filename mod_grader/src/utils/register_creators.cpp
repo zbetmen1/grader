@@ -17,16 +17,12 @@ namespace dynamic
     {
       if (!object::insert_creators_mt(className, ctorName, dtorName))
       {
-        stringstream logmsg;
-        logmsg << "Class named '" << className << "' already registered.";
-        LOG(logmsg.str(), grader::ERROR);
+        glog::error() << "Class named '" << className << "' already registered.\n";
       }
     }
     else if (!object::insert_creators_st(className, ctorName, dtorName))
     {
-      stringstream logmsg;
-      logmsg << "Class named '" << className << "' already registered.";
-      LOG(logmsg.str(), grader::ERROR);
+      glog::error() << "Class named '" << className << "' already registered.\n";
     }
   }
   

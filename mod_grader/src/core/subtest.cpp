@@ -2,6 +2,7 @@
 #include "subtest.hpp"
 #include "configuration.hpp"
 #include "grader_log.hpp"
+#include "shared_memory.hpp"
 
 // STL headers
 #include <algorithm>
@@ -15,7 +16,7 @@ using namespace std;
 namespace grader 
 {
   subtest::subtest(subtest::subtest_type type, std::string& cont, subtest::subtest_i_o IO, const std::string& path)
-  : m_type(type), m_content(shm().get_segment_manager()), m_io(IO), m_path(shm().get_segment_manager())
+  : m_type(type), m_content(shared_memory::instance().get_segment_manager()), m_io(IO), m_path(shared_memory::instance().get_segment_manager())
   {
     // Copy content
     if (subtest_out == type)
@@ -54,7 +55,7 @@ namespace grader
     else if ("file" == ioStr)
       return subtest_i_o::FILE;
     else
-      LOG("Unknown subtest I/O specified. Possible values are: 'std', 'cmd', 'file'. Given value: " + ioStr, grader::ERROR);
+      glog::error() << "Unknown subtest I/O specified. Possible values are: 'std', 'cmd', 'file'. Given value: " << ioStr << '\n';
     return subtest_i_o::STD;
   }
 }

@@ -44,7 +44,7 @@ namespace dynamic
       return destructorIt->second.second;
     }
     
-    LOG("No destructor for class name: " + className + '.', grader::ERROR);
+    glog::error() << "No destructor for class name: " << className << ".\n";
     return nullptr;
   }
   
@@ -56,7 +56,7 @@ namespace dynamic
       return constructorIt->second.first;
     }
     
-    LOG("No constructor for class name: " + className + '.', grader::ERROR);
+    glog::error() << "No constructor for class name: " << className << ".\n";
     return nullptr;
   }
   

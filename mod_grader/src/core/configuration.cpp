@@ -114,14 +114,6 @@ const configuration& configuration::instance() noexcept
   return singleton;
 }
 
-boost::interprocess::managed_shared_memory& shm()
-{
-  static boost::interprocess::managed_shared_memory sshm(boost::interprocess::open_or_create, 
-                                                          configuration::instance().get(configuration::SHMEM_NAME)->second.c_str(), 
-                                                          stoul(configuration::instance().get(configuration::SHMEM_SIZE)->second));
-  return sshm;
-}
-
 const string& configuration::get_grader_name(const configuration::grader_info& grInfo) noexcept
 {
   return grInfo.first;

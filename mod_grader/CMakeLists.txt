@@ -6,7 +6,7 @@ project(mod_grader)
 include_directories(include/core include/daemon/ include/plugins/ include/utils/ include/web/)
 
 # Set C++ flags
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -Wall -Werror -Wextra -g")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++1y -Wall -Werror -Wextra -g")
 
 # Create grader shared library
 find_package(Boost 1.54 COMPONENTS log log_setup thread date_time filesystem system iostreams REQUIRED)
@@ -15,8 +15,18 @@ add_definitions(-DBOOST_LOG_DYN_LINK) # for stupid log library
 
 find_library(POCO_FOUNDATION PocoFoundation REQUIRED)
 
-add_library(grader SHARED src/core/task.cpp src/core/grader_base.cpp src/core/subtest.cpp src/core/configuration.cpp # Core
-                          src/utils/object.cpp src/utils/register_creators.cpp src/utils/shared_lib.cpp src/utils/grader_log.cpp)             # Utils
+add_library(grader SHARED src/core/task.cpp 
+                          src/core/grader_base.cpp 
+                          src/core/subtest.cpp 
+                          src/core/configuration.cpp 
+                          src/core/grader_pool.cpp 
+                          src/core/grader_log.cpp
+                          
+                          src/utils/shared_memory.cpp 
+                          src/utils/object.cpp 
+                          src/utils/register_creators.cpp 
+                          src/utils/shared_lib.cpp 
+                          src/utils/process.cpp)
 target_link_libraries(grader ${Boost_LIBRARIES} ${POCO_FOUNDATION})
 
 # Compile Apache module
@@ -34,7 +44,7 @@ add_custom_command(TARGET mod_grader POST_BUILD
 # Compile grader worker
 add_executable(grader_worker src/core/grader_worker.cpp)
 target_link_libraries(grader_worker ${Boost_LIBRARIES} grader)
-                   
+
 # Compile grader_c
 add_library(grader_c SHARED src/plugins/grader_c.cpp)
 target_link_libraries(grader_c grader)
