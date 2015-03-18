@@ -11,6 +11,7 @@
 #include <vector>
 #include <map>
 #include <iostream>
+#include <iostream>
 
 // Unix headers
 #include <unistd.h>
@@ -23,6 +24,11 @@
 
 namespace grader 
 {
+  using pipe_istream = boost::iostreams::stream<boost::iostreams::file_descriptor_source>;
+  using pipe_ostream = boost::iostreams::stream<boost::iostreams::file_descriptor_sink>;
+  using fd_source = boost::iostreams::file_descriptor_source;
+  using fd_sink = boost::iostreams::file_descriptor_sink;
+  
   class process_exception: public std::runtime_error 
   {
   public:
@@ -68,7 +74,6 @@ namespace grader
     };
     
     using restrictions_array = std::vector<restriction>;
-    using pipe_handle = int;
     
   public:
     //////////////////////////////////////////////////////////////////////////////
@@ -76,8 +81,8 @@ namespace grader
     //////////////////////////////////////////////////////////////////////////////
     static constexpr handle invalid_handle = -1;
     static constexpr int invalid_exit_code = 256;
-    static constexpr int read_end = 0;
-    static constexpr int write_end = 1;
+    static const std::vector<std::string> no_args;
+    static const restrictions_array no_restrictions;
     
   private:
     //////////////////////////////////////////////////////////////////////////////
@@ -85,15 +90,17 @@ namespace grader
     //////////////////////////////////////////////////////////////////////////////
     handle m_childHandle;
     int m_exitCode;
-    pipe_handle m_childStdin;
-    pipe_handle m_childStdout;
-    pipe_handle m_childStderr;
     
   public:
     //////////////////////////////////////////////////////////////////////////////
     // Creators and destructor
     //////////////////////////////////////////////////////////////////////////////
-    explicit process(const std::string& executable, const restrictions_array& restrictions = restrictions_array{});
+    explicit process(const std::string& executable, 
+                     const std::vector<std::string>& args = no_args,
+                     pipe_ostream* stdinStream = nullptr,
+                     pipe_istream* stdoutStream = nullptr,
+                     pipe_istream* stderrStream = nullptr,
+                     const restrictions_array& restrictions = no_restrictions);
     ~process();
     
     process(const process&) = delete;
@@ -115,20 +122,67 @@ namespace grader
     static void handle_grandchild_timeout(int);
     
   private:
-    std::pair<autocall, autocall> open_pipe(pipe_handle (&pipes)[2]);
-    static void release_pair(std::pair<autocall, autocall>& releaser);
-    static void release_pair3(std::pair< grader::autocall, grader::autocall >& releaser0, 
-                       std::pair< grader::autocall, grader::autocall >& releaser1, 
-                       std::pair< grader::autocall, grader::autocall >& releaser2);
-    
-    static void fire_pair(std::pair<autocall, autocall>& releaser);
-    static void fire_pair3(std::pair< grader::autocall, grader::autocall >& releaser0, 
-                       std::pair< grader::autocall, grader::autocall >& releaser1, 
-                       std::pair< grader::autocall, grader::autocall >& releaser2);
-    
-    void start_not_timed_process(const std::string& executable, const restrictions_array& restrictions);
-    void start_timed_process(const std::string& executable, const restrictions_array& restrictions, 
+    //////////////////////////////////////////////////////////////////////////////
+    // Utilities
+    //////////////////////////////////////////////////////////////////////////////
+    void start_normal_process(const std::string& executable, 
+                              const std::vector<std::string>& args,
+                              pipe_ostream* stdinStream,
+                              pipe_istream* stdoutStream,
+                              pipe_istream* stderrStream,
+                              const restrictions_array& restrictions);
+    void start_timed_process(const std::string& executable, 
+                             const std::vector<std::string>& args,
+                             pipe_ostream* stdinStream,
+                             pipe_istream* stdoutStream,
+                             pipe_istream* stderrStream,
+                             const restrictions_array& restrictions, 
                              restrictions_array::const_iterator timeResIt);
+    void destroy();
+  };
+  
+  class pipe 
+  {
+    //////////////////////////////////////////////////////////////////////////////
+    // Types and constants
+    //////////////////////////////////////////////////////////////////////////////
+  public:
+    using handle = int;
+    
+    static constexpr handle invalid_handle = -1;
+    static constexpr int read_end = 0;
+    static constexpr int write_end = 1;
+  
+  private:
+    //////////////////////////////////////////////////////////////////////////////
+    // Members
+    //////////////////////////////////////////////////////////////////////////////
+    handle m_read;
+    handle m_write;
+    
+  public:
+    //////////////////////////////////////////////////////////////////////////////
+    // Constructors and destructor
+    //////////////////////////////////////////////////////////////////////////////
+    pipe();
+    ~pipe();
+    
+    //////////////////////////////////////////////////////////////////////////////
+    // Operations
+    //////////////////////////////////////////////////////////////////////////////
+    handle get_read_handle() const;
+    
+    handle get_write_handle() const;
+    
+    void close_read();
+    
+    void close_write();   
+    
+    void close_both();
+    
+    void redirect_read(handle h) const;
+    
+    void redirect_write(handle h) const;
   };
 }
 

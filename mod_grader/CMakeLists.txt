@@ -6,7 +6,7 @@ project(mod_grader)
 include_directories(include/core include/daemon/ include/plugins/ include/utils/ include/web/)
 
 # Set C++ flags
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++1y -Wall -Werror -Wextra -g")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++1y -Wall -Werror -g")
 
 # Create grader shared library
 find_package(Boost 1.54 COMPONENTS log log_setup thread date_time filesystem system iostreams REQUIRED)

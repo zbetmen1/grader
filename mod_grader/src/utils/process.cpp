@@ -61,15 +61,29 @@ namespace grader
     }
   }
   
-  process::process(const string& executable, const restrictions_array&  restrictions)
+  
+  
+  //////////////////////////////////////////////////////////////////////////////
+  // Process implementation
+  //////////////////////////////////////////////////////////////////////////////
+  
+  const vector<string> process::no_args{};
+  const process::restrictions_array process::no_restrictions{};
+  
+  process::process(const string& executable, 
+                   const vector<string>& args, 
+                   pipe_ostream* stdinStream,
+                   pipe_istream* stdoutStream,
+                   pipe_istream* stderrStream,
+                   const restrictions_array&  restrictions)
   : m_childHandle(invalid_handle), m_exitCode(invalid_exit_code)
   {
     restrictions_array::const_iterator it;
     if (restrictions.end() == (it = find_if(restrictions.begin(), restrictions.end(), 
         [=](const restriction& x) { return x.category == cpu_time; })))
-      start_not_timed_process(executable, restrictions);
+      start_normal_process(executable, args, stdinStream, stdoutStream, stderrStream, restrictions);
     else 
-      start_timed_process(executable, restrictions, it);
+      start_timed_process(executable, args,stdinStream, stdoutStream, stderrStream, restrictions, it);
   }
 
   process::process(process&& oth)
@@ -95,12 +109,7 @@ namespace grader
   
   process::~process()
   {
-    ::kill(m_childHandle, SIGKILL);
-    int status;
-    ::waitpid(m_childHandle, &status, 0);
-    ::close(m_childStdin);
-    ::close(m_childStdout);
-    ::close(m_childStderr);
+    destroy();
   }
   
   bool process::finished()
@@ -125,58 +134,16 @@ namespace grader
     this->wait();
   }
   
-  pair<autocall,autocall> process::open_pipe(pipe_handle (&pipes)[2])
+  void process::start_normal_process(const string& executable, 
+                                     const vector<string>& args,
+                                     pipe_ostream* stdinStream,
+                                     pipe_istream* stdoutStream,
+                                     pipe_istream* stderrStream,
+                                     const restrictions_array&  restrictions)
   {
-    // Open stdin pipe
-    if (pipe(pipes) == -1)
-      throw process_exception(::strerror(errno));
+    // Create pipes
+    grader::pipe stdinPipe, stdoutPipe, stderrPipe;
     
-    // Close pipe descriptors in case of exceptions
-    autocall pipeReleaseRead(&::close, pipes[read_end]);
-    autocall pipeReleaseWrite(&::close, pipes[write_end]);
-    return move(make_pair(move(pipeReleaseRead), move(pipeReleaseWrite)));
-  }
-  
-  void process::release_pair(pair< autocall, autocall >& releaser)
-  {
-    releaser.first.release();
-    releaser.second.release();
-  }
-  
-  void process::release_pair3(pair< autocall, autocall >& releaser0, 
-                              pair< autocall, autocall >& releaser1, 
-                              pair< autocall, autocall >& releaser2)
-  {
-    release_pair(releaser0);
-    release_pair(releaser1);
-    release_pair(releaser2);
-  }
-
-  void process::fire_pair(pair< autocall, autocall >& releaser)
-  {
-    releaser.first.fire();
-    releaser.second.fire();
-  }
-  
-  void process::fire_pair3(pair< autocall, autocall >& releaser0, 
-                           pair< autocall, autocall >& releaser1, 
-                           pair< autocall, autocall >& releaser2)
-  {
-    fire_pair(releaser0);
-    fire_pair(releaser1);
-    fire_pair(releaser2);
-  }
-  
-  void process::start_not_timed_process(const string& executable, const restrictions_array&  restrictions)
-  {
-    // Open all pipes
-    pipe_handle stdinPipe[2];
-    pipe_handle stdoutPipe[2];
-    pipe_handle stderrPipe[2];
-    auto releaseStdin = open_pipe(stdinPipe);
-    auto releaseStdout = open_pipe(stdoutPipe);
-    auto releaseStderr = open_pipe(stderrPipe);
-  
     // Fork process
     handle pid = fork();
     if (pid == invalid_handle)
@@ -185,47 +152,93 @@ namespace grader
     }
     else if (pid) // Parent
     {
-      // Close right fds
-      if (::close(stdinPipe[read_end]) == -1)
-        throw process_exception(::strerror(errno));
-      if (::close(stdoutPipe[write_end]) == -1)
-        throw process_exception(::strerror(errno));
-      if (::close(stderrPipe[write_end]) == -1)
-        throw process_exception(::strerror(errno));
-      
-      // Prevent automatic fds closure
-      release_pair3(releaseStdin, releaseStdout, releaseStderr);
-      
-      // Initialize child handle and pipe fds
+      // Initialize child handle
       m_childHandle = pid;
-      m_childStdin = stdinPipe[write_end];
-      m_childStdout = stdoutPipe[read_end];
-      m_childStderr = stderrPipe[read_end];
+      
+      // Open pipe streams
+      try
+      {
+        if (stdinStream) stdinStream->open(fd_sink(stdinPipe.get_write_handle(), boost::iostreams::close_handle));
+        if (stdoutStream) stdoutStream->open(fd_source(stdoutPipe.get_read_handle(), boost::iostreams::close_handle));
+        if (stderrStream) stderrStream->open(fd_source(stderrPipe.get_read_handle(), boost::iostreams::close_handle));
+      }
+      catch (const exception& e)
+      {
+        // Clean up
+        stdinPipe.close_both();
+        stdoutPipe.close_both();
+        stderrPipe.close_both();
+        destroy();
+        
+        // Re-throw
+        throw e;
+      }
+      
+      // Close what needs to be closed
+      stdinPipe.close_read();
+      if (!stdinStream) 
+        stdinPipe.close_write();
+      
+      stdoutPipe.close_write();
+      if (!stdoutStream) 
+        stdoutPipe.close_read();
+      
+      stderrPipe.close_write();
+      if (stderrStream) 
+        stderrPipe.close_read();
     }
     else //Child
     {
-      // Duplicate right fds
-      if (::dup2(stdinPipe[read_end], STDIN_FILENO) == -1)
-        throw process_exception(::strerror(errno));
-      if (::dup2(stdoutPipe[write_end], STDOUT_FILENO) == -1)
-        throw process_exception(::strerror(errno));
-      if (::dup2(stderrPipe[write_end], STDERR_FILENO) == -1)
-        throw process_exception(::strerror(errno));
+      // Close what needs to be closed
+      stdinPipe.close_write();
+      stdoutPipe.close_read();
+      stderrPipe.close_read();
       
-      // Close all fds
-      fire_pair3(releaseStdin, releaseStdout, releaseStderr);
-
+      // Redirect pipes and close them
+      try
+      {
+        if (stdinStream) stdinPipe.redirect_read(STDIN_FILENO);
+        if (stdoutStream) stdoutPipe.redirect_write(STDOUT_FILENO);
+        if (stderrStream) stderrPipe.redirect_write(STDERR_FILENO);
+      }
+      catch(const exception& e)
+      {
+        // Clean up
+        stdinPipe.close_both();
+        stdoutPipe.close_both();
+        stderrPipe.close_both();
+        
+        // Re-throw
+        throw e;
+      }
+      
+      // More closing...
+      stdinPipe.close_read();
+      stdoutPipe.close_write();
+      stderrPipe.close_write();
+      
       // Apply restrictions
       for (const auto& r : restrictions)
         r.apply();
       
+      // Transform command line arguments into right form
+      vector<char*> argv; argv.reserve(args.size() + 2);
+      argv.push_back(const_cast<char*>(executable.c_str()));
+      for (const auto& argument : args)
+        argv.push_back(const_cast<char*>(argument.c_str()));
+      argv.push_back(nullptr);
+      
       // Replace process image
-      const char* cexecutable = executable.c_str();
-      ::execl(cexecutable, cexecutable, static_cast<char*>(0));
+      ::execvp(argv[0], argv.data());
     }
   }
 
-  void process::start_timed_process(const string& executable, const restrictions_array& restrictions, 
+  void process::start_timed_process(const string& executable, 
+                                    const vector<string>& args,
+                                    pipe_ostream* stdinStream,
+                                    pipe_istream* stdoutStream,
+                                    pipe_istream* stderrStream,
+                                    const restrictions_array& restrictions, 
                                     restrictions_array::const_iterator timeResIt)
   {
     // Fork process
@@ -292,13 +305,26 @@ namespace grader
         for (const auto& r : restrictions)
           r.apply();
         
+        // Transform command line arguments into right form
+        vector<char*> argv; argv.reserve(args.size() + 2);
+        argv.push_back(const_cast<char*>(executable.c_str()));
+        for (const auto& argument : args)
+          argv.push_back(const_cast<char*>(argument.c_str()));
+        argv.push_back(nullptr);
+        
         // Replace process image
-        const char* cexecutable = executable.c_str();
-        ::execl(cexecutable, cexecutable, static_cast<char*>(0));
+        ::execvp(argv[0], argv.data());
       }
     }
   }
 
+  void process::destroy()
+  {
+    ::kill(m_childHandle, SIGKILL);
+    int status;
+    ::waitpid(m_childHandle, &status, 0);
+  }
+  
   void process::handle_grandchild_timeout(int)
   {
     // First release grandchild safety autocall
@@ -328,4 +354,70 @@ namespace grader
     else // Child exited before timeout so exit using that exit code
       ::exit(status);
   }
+
+  
+  
+  //////////////////////////////////////////////////////////////////////////////
+  // Pipe stream implementations
+  //////////////////////////////////////////////////////////////////////////////
+  pipe::pipe()
+  : m_read(invalid_handle), m_write(invalid_handle)
+  {
+    handle fd[2];
+    if (::pipe(fd) != -1)
+    {
+      m_read = fd[read_end];
+      m_write = fd[write_end];
+    }
+  }
+  
+  pipe::~pipe()
+  {}
+  
+  pipe::handle pipe::get_read_handle() const
+  {
+    return m_read;
+  }
+
+  pipe::handle pipe::get_write_handle() const
+  {
+    return m_write;
+  }
+  
+  void pipe::close_read()
+  {
+    if (m_read != invalid_handle)
+    {
+      ::close(m_read);
+      m_read = invalid_handle;
+    }
+  }
+  
+  void pipe::close_write()
+  {
+    if (m_write != invalid_handle)
+    {
+      ::close(m_write);
+      m_write = invalid_handle;
+    }
+  }
+
+  void pipe::close_both()
+  {
+    close_read();
+    close_write();
+  }
+  
+  void pipe::redirect_read(pipe::handle h) const
+  {
+    if (::dup2(m_read, h) == -1)
+      throw process_exception(::strerror(errno));
+  }
+  
+  void pipe::redirect_write(pipe::handle h) const
+  {
+    if (::dup2(m_write, h) == -1)
+      throw process_exception(::strerror(errno));
+  }
+  
 }
