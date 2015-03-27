@@ -26,8 +26,10 @@ add_library(grader SHARED src/core/task.cpp
                           src/utils/object.cpp 
                           src/utils/register_creators.cpp 
                           src/utils/shared_lib.cpp 
+                          src/utils/safe_process.cpp
+                          src/utils/pipe.cpp
                           src/utils/process.cpp)
-target_link_libraries(grader ${Boost_LIBRARIES} ${POCO_FOUNDATION})
+target_link_libraries(grader ${Boost_LIBRARIES} ${POCO_FOUNDATION} cap)
 
 # Compile Apache module
 include_directories("/usr/include/apr-1.0")

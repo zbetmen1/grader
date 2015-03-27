@@ -1,27 +1,20 @@
-#include <string>
+#include "safe_process.hpp"
 
-#include "process.hpp"
-
-using namespace grader;
 using namespace std;
+using namespace grader;
 
 int main()
 {
+  pipe_istream in; 
   pipe_ostream out;
-  pipe_istream in;
-  process p{"/home/zbetmen/myTest", process::no_args, &out, &in};
-  out << 1  << ' '
-      << 1  << ' '
-      << 2  << ' '
-      << 3  << ' '
-      << 5  << ' '
-      << 8  << ' '
-      << 13 << ' '
-      << 0  << ' ';
-  out.close();
-  p.wait();
-  
-  int n2;
-  while (in >> n2)
-    cout << "n^2=" << n2 << endl;
+  safe_process sfp("/tmp/grader_sandbox_testing/testdir/myTest", 
+                   "/tmp/grader_sandbox_testing/",
+                   "/tmp/grader_sandbox_testing/testdir/",
+                   999,
+                   1000,
+                   1 << 24,
+                   5,
+                   process::no_args,
+                   &in, &out
+                  );
 }
