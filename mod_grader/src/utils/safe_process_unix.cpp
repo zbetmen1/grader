@@ -10,7 +10,6 @@ using namespace std;
 namespace grader 
 {
   safe_process* safe_process::current_proc_ptr = nullptr;
-  safe_process safe_process::static_constructor;
   
   safe_process::safe_process(safe_process::dummy)
   : process(), m_exitCode(invalid_exit_code)
@@ -64,8 +63,7 @@ namespace grader
     }
     else //Child
     {
-      // Set limits
-      set_limits(mem, fno);
+      signal(SIGHUP, SIG_IGN);
       
       // Set up jail
       if (::chdir(cJailDir) == -1)
@@ -87,12 +85,20 @@ namespace grader
           throw process_exception(::strerror(errno));
       }
       
+      // Set limits
+      set_limits(mem, fno);
+      
       // Set up child pipes
       set_up_child_pipes(stdinPipe, stdoutPipe, stderrPipe, 
                           stdinStream, stdoutStream, stderrStream);
-            
+      
+      if (::access(argv[0], F_OK) != 0)
+        throw process_exception("Nema fajla!");
+      
       // Replace process image
-      ::execvp(argv[0], argv.data());
+      int returned = ::execvp(argv[0], argv.data());
+      if (returned == -1)
+        throw process_exception(::strerror(errno));
     }
   }
     

@@ -34,7 +34,7 @@ namespace grader
     //////////////////////////////////////////////////////////////////////////////
     int m_exitCode;
     static safe_process* current_proc_ptr;
-    static safe_process static_constructor;
+    
     //////////////////////////////////////////////////////////////////////////////
     // Creators and destructor
     //////////////////////////////////////////////////////////////////////////////
@@ -66,9 +66,10 @@ namespace grader
     virtual int wait();
     
     virtual void kill();
-  private:
+  
     static void initialize();
-    
+  
+  private:  
     static void handle_child_timeout(int);
     
     void set_limits(rlim_t mem, rlim_t fno) const;

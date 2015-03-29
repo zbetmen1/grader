@@ -26,10 +26,13 @@ add_library(grader SHARED src/core/task.cpp
                           src/utils/object.cpp 
                           src/utils/register_creators.cpp 
                           src/utils/shared_lib.cpp 
-                          src/utils/safe_process.cpp
-                          src/utils/pipe.cpp
-                          src/utils/process.cpp)
+                          )
 target_link_libraries(grader ${Boost_LIBRARIES} ${POCO_FOUNDATION} cap)
+
+add_library(process_utils SHARED src/utils/safe_process.cpp
+                                 src/utils/pipe.cpp
+                                 src/utils/process.cpp)
+target_link_libraries(process_utils ${Boost_LIBRARIES})
 
 # Compile Apache module
 include_directories("/usr/include/apr-1.0")
@@ -45,7 +48,7 @@ add_custom_command(TARGET mod_grader POST_BUILD
 
 # Compile grader worker
 add_executable(grader_worker src/core/grader_worker.cpp)
-target_link_libraries(grader_worker ${Boost_LIBRARIES} grader)
+target_link_libraries(grader_worker process_utils)
 
 # Compile grader_c
 add_library(grader_c SHARED src/plugins/grader_c.cpp)

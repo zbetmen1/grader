@@ -45,6 +45,8 @@ namespace grader
   //////////////////////////////////////////////////////////////////////////////
   // Process implementation
   //////////////////////////////////////////////////////////////////////////////
+  const vector<string> process::no_args{};
+  
   process::process(const string& executable, const vector< string >& args, 
                   pipe_ostream* stdinStream, pipe_istream* stdoutStream, pipe_istream* stderrStream, 
                   const string& workingDir, const enviroment& e)
