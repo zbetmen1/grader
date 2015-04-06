@@ -3,7 +3,7 @@
 
 // Project headers
 #include "grader_base.hpp"
-#include "register_creators.hpp"
+#include "dynamic/register_creators.hpp"
 
 class grader_py: public grader::grader_base 
 {

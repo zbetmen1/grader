@@ -2,7 +2,7 @@
 #define CONFIGURATION_HPP
 
 // Project headers
-#include "grader_log.hpp"
+#include "log.hpp"
 
 // STL headers
 #include <unordered_map>

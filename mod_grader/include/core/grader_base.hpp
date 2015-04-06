@@ -3,8 +3,8 @@
 
 // Project headers
 #include "subtest.hpp"
-#include "object.hpp"
-#include "register_creators.hpp"
+#include "dynamic/object.hpp"
+#include "dynamic/register_creators.hpp"
 #include "task.hpp"
 
 // STL headers

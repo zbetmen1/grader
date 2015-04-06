@@ -22,7 +22,7 @@
 
 // Project headers
 #include "request_parser.hpp"
-#include "grader_log.hpp"
+#include "log.hpp"
 
 // STL headers
 #include <algorithm>

@@ -1,5 +1,5 @@
 // Project headers
-#include "grader_log.hpp"
+#include "log.hpp"
 
 namespace grader 
 {

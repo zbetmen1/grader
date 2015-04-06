@@ -1,5 +1,5 @@
 // Project headers
-#include "pipe.hpp"
+#include "process/pipe.hpp"
 
 // Unix headers
 #include <unistd.h>

@@ -1,6 +1,6 @@
 #include "shared_memory.hpp"
 #include "configuration.hpp"
-#include "grader_log.hpp"
+#include "log.hpp"
 
 using namespace std;
 

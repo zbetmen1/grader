@@ -23,7 +23,7 @@
 // Project headers
 #include "grader_base.hpp"
 #include "configuration.hpp"
-#include "grader_log.hpp"
+#include "log.hpp"
 
 // STL headers
 #include <utility>

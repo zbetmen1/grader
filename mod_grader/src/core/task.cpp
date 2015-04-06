@@ -2,9 +2,9 @@
 #include "task.hpp"
 #include "configuration.hpp"
 #include "grader_base.hpp"
-#include "shared_lib.hpp"
+#include "dynamic/shared_lib.hpp"
 #include "shared_memory.hpp"
-#include "grader_log.hpp"
+#include "log.hpp"
 
 // STL headers
 #include <algorithm>

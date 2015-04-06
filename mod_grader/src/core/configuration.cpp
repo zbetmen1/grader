@@ -1,6 +1,6 @@
 // Project headers
 #include "configuration.hpp"
-#include "grader_log.hpp"
+#include "log.hpp"
 
 // STL headers
 #include <fstream>

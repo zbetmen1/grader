@@ -3,7 +3,7 @@
 #include "request_parser.hpp"
 #include "task.hpp"
 #include "configuration.hpp"
-#include "grader_log.hpp"
+#include "log.hpp"
 #include "interprocess_queue.hpp"
 #include "shared_memory.hpp"
 

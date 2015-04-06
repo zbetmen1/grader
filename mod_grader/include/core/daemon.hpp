@@ -2,7 +2,7 @@
 #define DAEMON_HPP
 
 // Project headers
-#include "process.hpp"
+#include "process/process.hpp"
 
 // STL headers
 #include <vector>

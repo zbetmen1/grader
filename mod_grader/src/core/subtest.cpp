@@ -1,7 +1,7 @@
 // Project headers
 #include "subtest.hpp"
 #include "configuration.hpp"
-#include "grader_log.hpp"
+#include "log.hpp"
 #include "shared_memory.hpp"
 
 // STL headers

@@ -8,30 +8,32 @@ include_directories(include/core include/daemon/ include/plugins/ include/utils/
 # Set C++ flags
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++1y -Wall -Werror -g")
 
-# Create grader shared library
+# Find Boost library
 find_package(Boost 1.54 COMPONENTS log log_setup thread date_time filesystem system iostreams REQUIRED)
 include_directories( ${Boost_INCLUDE_DIR} )
 add_definitions(-DBOOST_LOG_DYN_LINK) # for stupid log library
 
 find_library(POCO_FOUNDATION PocoFoundation REQUIRED)
 
+# Compile dynamic library
+add_library(dynamic_utils SHARED src/utils/dynamic/object.cpp 
+                                 src/utils/dynamic/shared_lib.cpp
+                                 src/utils/dynamic/register_creators.cpp)
+                                 
+# Compile process library
+add_library(process_utils SHARED src/utils/process/safe_process.cpp
+                                 src/utils/process/pipe.cpp
+                                 src/utils/process/process.cpp)
+target_link_libraries(process_utils ${Boost_LIBRARIES})
+
 add_library(grader SHARED src/core/task.cpp 
                           src/core/grader_base.cpp 
                           src/core/subtest.cpp 
                           src/core/configuration.cpp
-                          src/core/grader_log.cpp
+                          src/core/log.cpp
+                          src/core/shared_memory.cpp)
                           
-                          src/utils/shared_memory.cpp 
-                          src/utils/object.cpp 
-                          src/utils/register_creators.cpp 
-                          src/utils/shared_lib.cpp 
-                          )
-target_link_libraries(grader ${Boost_LIBRARIES} ${POCO_FOUNDATION})
-
-add_library(process_utils SHARED src/utils/safe_process.cpp
-                                 src/utils/pipe.cpp
-                                 src/utils/process.cpp)
-target_link_libraries(process_utils ${Boost_LIBRARIES})
+target_link_libraries(grader ${Boost_LIBRARIES} ${POCO_FOUNDATION} dynamic_utils process_utils)
 
 # Compile Apache module
 include_directories("/usr/include/apr-1.0")
@@ -46,7 +48,7 @@ add_custom_command(TARGET mod_grader POST_BUILD
                    COMMAND deploy_grader.sh ${PROJECT_SOURCE_DIR}/build/)
 
 # Compile daemon
-add_executable(graderd src/daemon/daemon.cpp)
+add_executable(graderd src/core/daemon.cpp)
 target_link_libraries(graderd grader process_utils ${Boost_LIBRARIES})
                    
 # Compile grader_c
