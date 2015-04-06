@@ -5,7 +5,6 @@
 #include "configuration.hpp"
 #include "grader_log.hpp"
 #include "interprocess_queue.hpp"
-#include "grader_pool.hpp"
 #include "shared_memory.hpp"
 
 // STL headers
@@ -69,7 +68,7 @@ char* task_id_from_url(request_rec* r)
 EXTERN_C int grader_handler(request_rec* r)
 {
   if (!r->handler || strcmp(r->handler, "grader")) return (DECLINED);
-  grader_pool& GRADER_POOL = grader_pool::instance();
+  
   /* Dispatch on type of request, when request type is POST
    assume that we have new grading to do, but if request type
    is GET assume that clients are asking for grading results */
@@ -118,7 +117,7 @@ EXTERN_C int grader_handler(request_rec* r)
     }
     
     glog::debug() << "Created task with id: "<< newTask->id() << '\n';
-    GRADER_POOL.submit(newTask);
+    // TODO: Submit task
     ap_rprintf(r, "%s", newTask->id());
   }
   else if (r->method_number == M_DELETE)

@@ -1,5 +1,6 @@
 // Project headers
 #include "safe_process.hpp"
+#include "autocall.hpp"
 
 // Unix headers
 #include <sys/time.h>
@@ -11,19 +12,21 @@ namespace grader
 {
   safe_process* safe_process::current_proc_ptr = nullptr;
   
-  safe_process::safe_process(safe_process::dummy)
-  : process(), m_exitCode(invalid_exit_code)
-  {
-    initialize();
-  }
-  
   safe_process::safe_process()
   : process(), m_exitCode(invalid_exit_code)
   {}
   
-  safe_process::safe_process(const string& executable, const string& jailDir, const string& workDir, 
-                             uid_t unprivilegedUser, rlim_t cpu, rlim_t mem, rlim_t fno,
-                             const vector< string >& args, pipe_ostream* stdinStream, pipe_istream* stdoutStream, pipe_istream* stderrStream, 
+  safe_process::safe_process(const string& executable, 
+                             const string& jailDir,  
+                             uid_t unprivilegedUser, 
+                             const string& workDir, 
+                             rlim_t cpu, 
+                             rlim_t mem, 
+                             rlim_t fno,
+                             const vector< string >& args, 
+                             pipe_ostream* stdinStream, 
+                             pipe_istream* stdoutStream, 
+                             pipe_istream* stderrStream, 
                              const enviroment& e)
   : process(), m_exitCode(invalid_exit_code)
   {
@@ -31,7 +34,9 @@ namespace grader
     const vector<string>& envVars = e.data();
     
     // Get jail directory
-    const char* cJailDir = jailDir.c_str();
+    const char* cJailDir = jailDir.empty() ? nullptr : jailDir.c_str();
+    if (!cJailDir)
+      throw process_exception("Jail directory must be specified!");
     
     // Get working directory
     const char* cWorkDir = workDir.empty() ? nullptr : workDir.c_str();
@@ -52,18 +57,27 @@ namespace grader
     {
       // Initialize child handle
       m_childHandle = child;
+      autocall handleStreamFailure{[&](){
+        stdinPipe.close_both();
+        stdoutPipe.close_both();
+        stderrPipe.close_both();
+        destroy();
+      }};
       
       // Open pipe streams
       set_up_parent_pipes(stdinPipe, stdoutPipe, stderrPipe, 
                           stdinStream, stdoutStream, stderrStream);
       
       // Set current process and timeout
-      current_proc_ptr = this;
       set_timeout(cpu);
+      current_proc_ptr = this;
+      handleStreamFailure.release();
     }
     else //Child
     {
-      signal(SIGHUP, SIG_IGN);
+      // Ignore SIGHUP that will occur due to chroot and setuid calls
+      if (::signal(SIGHUP, SIG_IGN) == SIG_ERR)
+        throw process_exception(::strerror(errno));
       
       // Set up jail
       if (::chdir(cJailDir) == -1)
@@ -74,7 +88,7 @@ namespace grader
         throw process_exception(::strerror(errno));
       
       // Set up working directory
-      if (::chdir(cWorkDir) == -1)
+      if (cWorkDir && ::chdir(cWorkDir) == -1)
         throw process_exception(::strerror(errno));
       
       // Set up environment variables
@@ -85,20 +99,16 @@ namespace grader
           throw process_exception(::strerror(errno));
       }
       
-      // Set limits
-      set_limits(mem, fno);
-      
       // Set up child pipes
       set_up_child_pipes(stdinPipe, stdoutPipe, stderrPipe, 
                           stdinStream, stdoutStream, stderrStream);
       
-      if (::access(argv[0], F_OK) != 0)
-        throw process_exception("Nema fajla!");
+      // Set process limits
+      set_limits(mem, fno);
       
-      // Replace process image
-      int returned = ::execvp(argv[0], argv.data());
-      if (returned == -1)
-        throw process_exception(::strerror(errno));
+      // Replace process image or throw on return
+      ::execvp(argv[0], argv.data());
+      throw process_exception(::strerror(errno));
     }
   }
     

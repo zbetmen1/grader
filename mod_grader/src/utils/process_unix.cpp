@@ -1,5 +1,6 @@
 // Project headers
 #include "process.hpp"
+#include "autocall.hpp"
 
 // STL headers
 #include <csignal>
@@ -20,7 +21,11 @@ namespace grader
 
   void enviroment::put(const string& name, const string& val)
   {
-    m_buff.push_back(name + '=' + val);
+    string envVar; envVar.reserve(name.size() + 1 + val.size());
+    envVar+= name;
+    envVar+= '=';
+    envVar+= val;
+    m_buff.emplace_back(move(envVar));
   }
 
   string enviroment::get(const string& name) const
@@ -47,6 +52,52 @@ namespace grader
   //////////////////////////////////////////////////////////////////////////////
   const vector<string> process::no_args{};
   
+  process::process()
+  : m_childHandle(invalid_handle)
+  {}
+  
+  process::process(function<void(void)> executable, const string& workingDir, const enviroment& e)
+  : m_childHandle(invalid_handle)
+  {
+    // Get environment variables buffer
+    const vector<string>& envVars = e.data();
+    
+    // Get working directory
+    const char* cWorkDir = workingDir.empty() ? nullptr : workingDir.c_str();
+    
+    // Fork child
+    handle child = fork();
+    if (child == invalid_handle)
+    {
+      throw process_exception(::strerror(errno));
+    }
+    else if (child) // Parent
+    {
+      // Initialize child handle
+      m_childHandle = child;
+    }
+    else // Child
+    {
+      // Set up working directory
+      if (cWorkDir)
+      {
+        if (::chdir(cWorkDir) == -1)
+          throw process_exception(::strerror(errno));
+      }
+      
+      // Set up environment variables
+      for (const auto& envVar : envVars)
+      {
+        const char* cEnvVar = envVar.data();
+        if (::putenv(const_cast<char*>(cEnvVar)) != 0)
+          throw process_exception(::strerror(errno));
+      }
+      
+      // Start main loop function
+      executable();
+    }
+  }
+  
   process::process(const string& executable, const vector< string >& args, 
                   pipe_ostream* stdinStream, pipe_istream* stdoutStream, pipe_istream* stderrStream, 
                   const string& workingDir, const enviroment& e)
@@ -71,12 +122,20 @@ namespace grader
     }
     else if (child) // Parent
     {
-      // Initialize child handle
+      // Initialize child handle and set exception handling
       m_childHandle = child;
+      autocall handleStreamFailure(
+        [&](){
+          stdinPipe.close_both();
+          stdoutPipe.close_both();
+          stderrPipe.close_both();
+          destroy();
+      });
       
-      // Open pipe streams
+      // Open pipe streams and release exceptions safety
       set_up_parent_pipes(stdinPipe, stdoutPipe, stderrPipe, 
                           stdinStream, stdoutStream, stderrStream);
+      handleStreamFailure.release();
     }
     else //Child
     {
@@ -104,10 +163,6 @@ namespace grader
     }
   }
   
-  process::process()
-  : m_childHandle(invalid_handle)
-  {}
-  
   process::process(process&& oth)
   : m_childHandle(oth.m_childHandle)
   {
@@ -118,7 +173,7 @@ namespace grader
   {
     if (&oth != this)
     {
-      this->wait();
+      this->destroy();
       m_childHandle = oth.m_childHandle;
       oth.m_childHandle = invalid_handle;
     }
@@ -158,6 +213,12 @@ namespace grader
     this->wait();
   }
   
+  void process::send_signal(int signum) const
+  {
+    if (::kill(m_childHandle, signum) == -1)
+      throw process_exception(::strerror(errno));
+  }
+  
   vector< char* > process::command_line_args(const string& executable, const vector< string >& args) const
   {
     vector<char*> argv; argv.reserve(args.size() + 2);
@@ -176,36 +237,21 @@ namespace grader
                                     pipe_istream* stdoutStream, 
                                     pipe_istream* stderrStream)
   {
-    try
-    {
-      if (stdinStream) stdinStream->open(fd_sink(stdinPipe.get_write_handle(), 
-                                                 boost::iostreams::close_handle));
-      if (stdoutStream) stdoutStream->open(fd_source(stdoutPipe.get_read_handle(), 
-                                                     boost::iostreams::close_handle));
-      if (stderrStream) stderrStream->open(fd_source(stderrPipe.get_read_handle(), 
-                                                     boost::iostreams::close_handle));
-    }
-    catch (const exception& e)
-    {
-      // Clean up
-      stdinPipe.close_both();
-      stdoutPipe.close_both();
-      stderrPipe.close_both();
-      destroy();
-      
-      // Re-throw
-      throw e;
-    }
-    
+    // Open streams
+    if (stdinStream) stdinStream->open(fd_sink(stdinPipe.get_write_handle(), 
+                                                boost::iostreams::close_handle));
+    if (stdoutStream) stdoutStream->open(fd_source(stdoutPipe.get_read_handle(), 
+                                                    boost::iostreams::close_handle));
+    if (stderrStream) stderrStream->open(fd_source(stderrPipe.get_read_handle(), 
+                                                    boost::iostreams::close_handle));
+  
     // Close what needs to be closed
     stdinPipe.close_read();
     if (!stdinStream) 
       stdinPipe.close_write();
-    
     stdoutPipe.close_write();
     if (!stdoutStream) 
       stdoutPipe.close_read();
-    
     stderrPipe.close_write();
     if (stderrStream) 
       stderrPipe.close_read();
@@ -224,22 +270,9 @@ namespace grader
     stderrPipe.close_read();
     
     // Redirect pipes and close them
-    try
-    {
-      if (stdinStream) stdinPipe.redirect_read(STDIN_FILENO);
-      if (stdoutStream) stdoutPipe.redirect_write(STDOUT_FILENO);
-      if (stderrStream) stderrPipe.redirect_write(STDERR_FILENO);
-    }
-    catch(const exception& e)
-    {
-      // Clean up
-      stdinPipe.close_both();
-      stdoutPipe.close_both();
-      stderrPipe.close_both();
-      
-      // Re-throw
-      throw e;
-    }
+    if (stdinStream) stdinPipe.redirect_read(STDIN_FILENO);
+    if (stdoutStream) stdoutPipe.redirect_write(STDOUT_FILENO);
+    if (stderrStream) stderrPipe.redirect_write(STDERR_FILENO);
     
     // More closing...
     stdinPipe.close_read();

@@ -1,64 +1,72 @@
 // Project headers
 #include "grader_log.hpp"
 
-// STL headers
-#include <vector>
-#include <chrono>
-#include <ctime>
-
-using namespace std;
-
 namespace grader 
 {
-  const char* log::LOG_FILE = "/var/log/grader/all.log";
+  log::log(grader::log::severity appSeverity)
+  : m_buffer(), m_currentSeverity(severity::INVALID), m_severity(appSeverity)
+  {
+    if (appSeverity == severity::INVALID)
+      throw log_construction_error("Log severity specified is invalid!");
+    
+    ::openlog(nullptr, LOG_PID, LOG_LOCAL7);
+  }
 
-  log::log()
-  : m_logFile(LOG_FILE, fstream::app), m_lock(LOG_FILE)
-  {}
-  
   log::~log()
   {
-    m_logFile.close();
+    flush();
+    ::closelog();
   }
-
-  log& log::severity(const char* which)
+  
+  log& log::instance(grader::log::severity appSeverity)
   {
-    log& l = log::instance();
-    auto time_point = std::chrono::system_clock::now();
-    std::time_t ttp = std::chrono::system_clock::to_time_t(time_point);
-    return l << "[" << which << "] " << ctime(&ttp) << " ";
+    static log l(appSeverity);
+    return l;
   }
-
+  
+  void log::flush()
+  {
+    if (m_currentSeverity != severity::INVALID)
+    {
+      ::syslog(static_cast<int>(m_currentSeverity), "%s", m_buffer.str().c_str());
+      
+      m_buffer.clear();
+      m_currentSeverity = severity::INVALID;
+    }
+  }
+  
+  log& log::set_severity(log::severity currentSeverity)
+  {
+    log& l = glog::instance();
+    if (l.m_currentSeverity != severity::INVALID)
+      l.flush();
+    
+    l.m_currentSeverity = currentSeverity;
+    return l;
+  }
   
   log& log::debug()
   {
-    return severity("DEBUG");
+    return set_severity(severity::DEBUG);
   }
-  
+ 
   log& log::info()
   {
-    return severity("INFO");
+    return set_severity(severity::INFO);
   }
-
+  
   log& log::warning()
   {
-    return severity("WARNING");
+    return set_severity(severity::WARNING);
   }
   
   log& log::error()
   {
-    return severity("ERROR");
+    return set_severity(severity::ERROR);
   }
   
   log& log::fatal()
   {
-    return severity("FATAL");
+    return set_severity(severity::FATAL);
   }
-
-  log& log::instance()
-  {
-    static log l;
-    return l;
-  }
-
 }

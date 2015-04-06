@@ -18,8 +18,7 @@ find_library(POCO_FOUNDATION PocoFoundation REQUIRED)
 add_library(grader SHARED src/core/task.cpp 
                           src/core/grader_base.cpp 
                           src/core/subtest.cpp 
-                          src/core/configuration.cpp 
-                          src/core/grader_pool.cpp 
+                          src/core/configuration.cpp
                           src/core/grader_log.cpp
                           
                           src/utils/shared_memory.cpp 
@@ -27,7 +26,7 @@ add_library(grader SHARED src/core/task.cpp
                           src/utils/register_creators.cpp 
                           src/utils/shared_lib.cpp 
                           )
-target_link_libraries(grader ${Boost_LIBRARIES} ${POCO_FOUNDATION} cap)
+target_link_libraries(grader ${Boost_LIBRARIES} ${POCO_FOUNDATION})
 
 add_library(process_utils SHARED src/utils/safe_process.cpp
                                  src/utils/pipe.cpp
@@ -46,10 +45,10 @@ set_target_properties(mod_grader PROPERTIES COMPILE_FLAGS "-pipe -g -O2 -fstack-
 add_custom_command(TARGET mod_grader POST_BUILD 
                    COMMAND deploy_grader.sh ${PROJECT_SOURCE_DIR}/build/)
 
-# Compile grader worker
-add_executable(grader_worker src/core/grader_worker.cpp)
-target_link_libraries(grader_worker process_utils)
-
+# Compile daemon
+add_executable(graderd src/daemon/daemon.cpp)
+target_link_libraries(graderd grader process_utils ${Boost_LIBRARIES})
+                   
 # Compile grader_c
 add_library(grader_c SHARED src/plugins/grader_c.cpp)
 target_link_libraries(grader_c grader)

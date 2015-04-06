@@ -8,6 +8,7 @@
 #include <string>
 #include <vector>
 #include <sstream>
+#include <functional>
 
 // BOOST headers
 #include <boost/optional.hpp>
@@ -65,6 +66,8 @@ namespace grader
     //////////////////////////////////////////////////////////////////////////////
     explicit process();
     
+    explicit process(std::function<void(void)> executable, const std::string& workingDir = std::string(), const enviroment& e = enviroment());
+    
     explicit process(const std::string& executable,
                      const std::vector<std::string>& args = no_args,
                      pipe_ostream* stdinStream = nullptr,
@@ -88,6 +91,8 @@ namespace grader
     virtual int wait();
     
     virtual void kill();
+    
+    void send_signal(int signum) const;
   protected:
     //////////////////////////////////////////////////////////////////////////////
     // Utilities

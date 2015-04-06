@@ -27,8 +27,6 @@ namespace grader
     static constexpr rlim_t unlimited = std::numeric_limits<rlim_t>::max();
     static constexpr int invalid_exit_code = 256;
   private:
-    struct dummy {};
-    
     //////////////////////////////////////////////////////////////////////////////
     // Members
     //////////////////////////////////////////////////////////////////////////////
@@ -38,19 +36,21 @@ namespace grader
     //////////////////////////////////////////////////////////////////////////////
     // Creators and destructor
     //////////////////////////////////////////////////////////////////////////////
-    safe_process(dummy);
-    
   public:
     explicit safe_process();
   
-    explicit safe_process(const std::string& executable, const std::string& jailDir, 
-                        const std::string& workDir, uid_t unprivilegedUser, 
-                        rlim_t cpu, rlim_t mem, rlim_t fno,
-                        const std::vector< std::string >& args = no_args, 
-                        grader::pipe_ostream* stdinStream = nullptr, 
-                        grader::pipe_istream* stdoutStream = nullptr, 
-                        grader::pipe_istream* stderrStream = nullptr,
-                        const grader::enviroment& e = enviroment());
+    explicit safe_process(const std::string& executable, 
+                          const std::string& jailDir, 
+                          uid_t unprivilegedUser, 
+                          const std::string& workDir = std::string(), 
+                          rlim_t cpu = 1000, 
+                          rlim_t mem = unlimited, 
+                          rlim_t fno = unlimited,
+                          const std::vector< std::string >& args = no_args, 
+                          grader::pipe_ostream* stdinStream = nullptr, 
+                          grader::pipe_istream* stdoutStream = nullptr, 
+                          grader::pipe_istream* stderrStream = nullptr,
+                          const grader::enviroment& e = enviroment());
     safe_process(const safe_process&) = delete;
     safe_process& operator=(const safe_process&) = delete;
     safe_process(safe_process&&);

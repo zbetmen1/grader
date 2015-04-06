@@ -3,11 +3,10 @@
 
 // STL headers
 #include <stdexcept>
-#include <fstream>
+#include <sstream>
 
-// BOOST headers
-#include <boost/interprocess/sync/file_lock.hpp>
-#include <boost/interprocess/sync/scoped_lock.hpp>
+// Unix headers
+#include <syslog.h>
 
 namespace grader 
 {
@@ -41,38 +40,40 @@ namespace grader
     //////////////////////////////////////////////////////////////////////////////
     // Types
     //////////////////////////////////////////////////////////////////////////////
-    enum class severity: unsigned char 
+    enum class severity: int
     {
-      DEBUG,
-      INFO,
-      WARNING,
-      ERROR,
-      FATAL
+      INVALID = -1,
+      DEBUG = LOG_DEBUG,
+      INFO = LOG_INFO,
+      WARNING = LOG_WARNING,
+      ERROR = LOG_ERR,
+      FATAL = LOG_EMERG
     };
     
   private:
     //////////////////////////////////////////////////////////////////////////////
     // Members
     //////////////////////////////////////////////////////////////////////////////
-    static const char* LOG_FILE;
-    
-    std::ofstream m_logFile;
-    boost::interprocess::file_lock m_lock;
+    std::ostringstream m_buffer;
+    severity m_currentSeverity;
+    const severity m_severity;
     
     //////////////////////////////////////////////////////////////////////////////
     // Creators and destructor
     //////////////////////////////////////////////////////////////////////////////
-    explicit log();
+    explicit log(severity appSeverity);
     ~log();
     
     //////////////////////////////////////////////////////////////////////////////
     // Operations
     //////////////////////////////////////////////////////////////////////////////    
     
-    static log& instance();
+    static log& instance(severity appSeverity = severity::INVALID);
+
+    void flush();
     
-    static log& severity(const char* which);
-  
+    static log& set_severity(severity currentSeverity);
+    
   public:
     static log& debug();
     
@@ -89,12 +90,25 @@ namespace grader
   };
 }
 
+//////////////////////////////////////////////////////////////////////////////
+// Severity operators
+//////////////////////////////////////////////////////////////////////////////
+bool operator==(grader::log::severity lhs, grader::log::severity rhs);
+
+bool operator!=(grader::log::severity lhs, grader::log::severity rhs);
+
+bool operator<(grader::log::severity lhs, grader::log::severity rhs);
+
+bool operator>(grader::log::severity lhs, grader::log::severity rhs);
+
+bool operator<=(grader::log::severity lhs, grader::log::severity rhs);
+
+bool operator>=(grader::log::severity lhs, grader::log::severity rhs);
+
 template <typename T>
 grader::log& operator<<(grader::log& logger, T arg) 
 {
-  boost::interprocess::scoped_lock<boost::interprocess::file_lock> lock(logger.m_lock);
-  logger.m_logFile << arg;
-  logger.m_logFile.flush();
+  logger.m_buffer << arg;
   return logger;
 }
 

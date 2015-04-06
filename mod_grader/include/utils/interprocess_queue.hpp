@@ -1,5 +1,5 @@
-#ifndef INTERPROCESS_QUEUE
-#define INTERPROCESS_QUEUE
+#ifndef CONCURENT_QUEUE
+#define CONCURENT_QUEUE
 
 #include "shared_memory.hpp"
 
@@ -181,4 +181,4 @@ namespace grader
   }
 }
 
-#endif // INTERPROCESS_QUEUE
+#endif // CONCURENT_QUEUE
