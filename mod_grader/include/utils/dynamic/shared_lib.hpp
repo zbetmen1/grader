@@ -34,12 +34,13 @@ namespace dynamic
   {
     platform::shared_lib_impl m_impl;
     
-  public:  
+  public:
+    shared_lib();
     shared_lib(const std::string& p, shared_lib_mode flag = shared_lib_mode::LAZY);
     ~shared_lib();
     
     platform::shared_lib_c_fun_ptr 
-    get_c_function(const std::string& functionName) const;
+    get_c_symbol(const std::string& functionName) const;
     
     // Shared library shouldn't be copied
     shared_lib(const shared_lib&) = delete;

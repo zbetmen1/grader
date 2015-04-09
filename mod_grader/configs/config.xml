@@ -11,35 +11,4 @@
   <!--Important directories and files-->
   <BASE_DIR>/home/zbetmen/students</BASE_DIR>
   <LIB_DIR>/home/zbetmen/Documents/grader/mod_grader/build</LIB_DIR>
-  <LOG_DIR>/var/log/grader</LOG_DIR>
-  
-  <!--Log stuff (except log dir is in important directories section)-->
-  <LOG_FILE>mod_grader%N.log</LOG_FILE>
-  <LOG_LEVEL>DEBUG</LOG_LEVEL>
-  <LOG_LEVEL_DEFAULT>WARNING</LOG_LEVEL_DEFAULT>
-  
-  <!--Testing config warnings-->
-  <LOG_FILE>grader_mod%N.log</LOG_FILE>
-  
-  <!--Suppoted languages-->
-  <LANGUAGE>
-    <NAME>c</NAME>
-    <GRADER>grader_c</GRADER>
-    <LIB>libgrader_c.so</LIB>
-  </LANGUAGE>
-  <LANGUAGE>
-    <NAME>cpp</NAME>
-    <GRADER>grader_cpp</GRADER>
-    <LIB>libgrader_cpp.so</LIB>
-  </LANGUAGE>
-  <LANGUAGE>
-    <NAME>cpp11</NAME>
-    <GRADER>grader_cpp11</GRADER>
-    <LIB>libgrader_cpp11.so</LIB>
-  </LANGUAGE>
-  <LANGUAGE>
-    <NAME>py</NAME>
-    <GRADER>grader_py</GRADER>
-    <LIB>libgrader_py.so</LIB>
-  </LANGUAGE>
 </config>

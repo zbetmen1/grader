@@ -9,6 +9,9 @@ using namespace std;
 
 namespace dynamic 
 {
+  shared_lib::shared_lib()
+  {}
+  
   shared_lib::shared_lib(const string& p, dynamic::shared_lib_mode flag)
   { 
     // Resolve path, resolve mode integer value and try to open shared library
@@ -40,7 +43,7 @@ namespace dynamic
   }
 
   platform::shared_lib_c_fun_ptr 
-  shared_lib::get_c_function(const string& functionName) const
+  shared_lib::get_c_symbol(const string& functionName) const
   {
     return platform::fetch_sym_from_shared_lib(m_impl, functionName.c_str());
   }

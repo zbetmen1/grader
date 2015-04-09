@@ -1,103 +1,80 @@
 #ifndef CONFIGURATION_HPP
 #define CONFIGURATION_HPP
 
-// Project headers
-#include "log.hpp"
-
 // STL headers
 #include <unordered_map>
 #include <string>
-#include <cstddef>
-#include <unordered_set>
+#include <stdexcept>
 
-// BOOST headers
-#include <boost/interprocess/managed_shared_memory.hpp>
-
-struct language;
-
-
-namespace grader
-{
-  struct language 
-  {
-    std::string name, grader_name, lib_name;
-    language(const std::string& name_, const std::string& grader_name_, const std::string& lib_name_)
-    : name(name_), grader_name(grader_name_), lib_name(lib_name_)
-    {}
-  };
-}
-
-namespace std 
-{
-  template<> struct hash<grader::language>
-  {
-    size_t operator()(const grader::language& l) const
-    {
-      return hash<string>()(l.name);
-    }
-  };
-  
-  template<> struct equal_to<grader::language>
-  {
-    bool operator()(const grader::language& l, const grader::language& r) const
-    {
-      return l.name == r.name;
-    }
-  };
-}
+#define CONFIG_DECL(name) static const std::string name
+#define CONFIG_DEF(name) const std::string configuration::name = #name
 
 namespace grader 
 {
-  class configuration
+  class configuration_exception: public std::runtime_error 
   {
   public:
-    // Types
-    using map_type = std::unordered_map<std::string, std::string>;
-    using grader_info = std::pair<std::string, std::string>;
-    
-    // Compile time parameters
-    static const std::string PATH_TO_CONFIG_FILE;
-    static const grader_info INVALID_GR_INFO;
-    
-    // Runtime parameters
-    static const std::string SHELL;
-    static const std::string SHELL_CMD_FLAG;
-    static const std::string SHMEM_NAME;
-    static const std::string SHMEM_SIZE;
-    static const std::string BASE_DIR;
-    static const std::string LIB_DIR;
-    static const std::string LOG_DIR;
-    static const std::string LOG_FILE;
-    static const std::string LOG_LEVEL;
-  private:
-    map_type m_conf;
-    std::unordered_set<language> m_languages;
-    static bool s_loaded;
-    
-    // Forbid construction
-    configuration();
-  public:
-    // Forbid copying and moving
-    configuration(const configuration&) = delete;
-    configuration& operator=(const configuration&) = delete;
-    configuration(configuration&&) = delete;
-    configuration& operator=(configuration&&) = delete;
-    
-    ~configuration();
-    
-    // Singleton's entry point
-    static const configuration& instance() noexcept;
-    
-    // API
-    map_type::const_iterator get(const std::string& key) const noexcept;
-    map_type::const_iterator invalid() const noexcept { return m_conf.cend(); }
-    grader_info get_grader(const std::string& languageName) const noexcept;
-    static const std::string& get_grader_name(const grader_info& grInfo) noexcept;
-    static const std::string& get_lib_name(const grader_info& grInfo) noexcept;
-  private:
-    void load_config();
+    explicit configuration_exception(const std::string& arg)
+    : std::runtime_error(arg)
+    {}
   };
   
+  class configuration 
+  {
+  public:
+    //////////////////////////////////////////////////////////////////////////////
+    // Types
+    //////////////////////////////////////////////////////////////////////////////
+    template <typename Key, typename Val>
+    using map_type = std::unordered_map<Key, Val>;
+    
+    //////////////////////////////////////////////////////////////////////////////
+    // Constants
+    //////////////////////////////////////////////////////////////////////////////
+    CONFIG_DECL(configuration_path);
+    CONFIG_DECL(shmem_name);
+    CONFIG_DECL(shmem_size);
+    CONFIG_DECL(jail_dir);
+    CONFIG_DECL(work_dir);
+    CONFIG_DECL(plugin_dir);
+    CONFIG_DECL(jail_user_base_name);
+    CONFIG_DECL(source_base_dir);
+  private:
+    //////////////////////////////////////////////////////////////////////////////
+    // Members
+    //////////////////////////////////////////////////////////////////////////////
+    map_type<std::string, std::string> m_conf;
+    
+    //////////////////////////////////////////////////////////////////////////////
+    // Creators and destructor
+    //////////////////////////////////////////////////////////////////////////////
+    explicit configuration();
+    configuration(const configuration&) = delete;
+    configuration& operator=(const configuration&) = delete;
+    ~configuration() = default;
+  public:
+    configuration(configuration&& oth) = default;
+    configuration& operator=(configuration&& oth) = default;
+    
+    //////////////////////////////////////////////////////////////////////////////
+    // Operations
+    //////////////////////////////////////////////////////////////////////////////
+    const std::string& get(const std::string& key) const;
+    
+    bool has_key(const std::string& key) const;
+    
+  private:
+    void reload(const std::string& pathToConf);
+    
+  public:
+    static configuration& instance();
+  };
+  
+  void ltrim(std::string& str);
+  
+  void rtrim(std::string& str);
+  
+  void trim(std::string& str);
 }
 
 #endif // CONFIGURATION_HPP

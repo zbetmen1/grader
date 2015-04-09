@@ -1,5 +1,6 @@
 // Project headers
 #include "daemon.hpp"
+#include "task_queue.hpp"
 
 using namespace std;
 
@@ -79,7 +80,19 @@ namespace grader
   
   void main_loop(int workerIdx)
   {
-    // TODO: Configure worker 
+    // Create jail user number workerIdx
+    uid_t unprivilegedUserId = create_user_if_not_exists(workerIdx);
+    
+    // Get task queue pointer
+    task_queue* tqPtr = get_task_queue();
+    boost::interprocess::offset_ptr<task> currentTask;
+    
+    // Run tasks
+    while (true) 
+    {
+      tqPtr->pop(currentTask);
+      currentTask->run_all(workerIdx);
+    }
   }
 }
 

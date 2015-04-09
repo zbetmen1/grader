@@ -1,10 +1,12 @@
 // Project headers
 #include "task.hpp"
-#include "configuration.hpp"
 #include "grader_base.hpp"
 #include "dynamic/shared_lib.hpp"
 #include "shared_memory.hpp"
 #include "log.hpp"
+#include "plugin_manager.hpp"
+#include "autocall.hpp"
+#include "configuration.hpp"
 
 // STL headers
 #include <algorithm>
@@ -12,8 +14,8 @@
 #include <sstream>
 #include <string>
 #include <functional>
-#include <csetjmp>
 #include <fstream>
+#include <cstring>
 
 // BOOST headers
 #include <boost/interprocess/managed_shared_memory.hpp>
@@ -27,177 +29,186 @@
 #include <boost/property_tree/xml_parser.hpp>
 #include <boost/property_tree/ptree.hpp>
 
-#include <boost/filesystem.hpp>
 #include <boost/iostreams/device/mapped_file.hpp>
+
+// Unix headers
+#include <unistd.h>
 
 using namespace std;
 using namespace grader;
 
-const task::test_attributes task::INVALID_TEST_ATTR{0, 0, ""};
-const char* task::TESTS_FILE_NAME = "tests.xml";
-
-jmp_buf g_saveStateBeforeTerminate;
+const task::test_attributes task::invalid_test_attr{0, 0, ""};
+const string task::source_file_name_base = "source.";
+const string task::test_file_name = "tests.xml";
 
 task::task(const char* fileName, std::size_t fnLen, const char* fileContent, std::size_t fcLen, const char* testsContents, 
            std::size_t testsCLen, const boost::uuids::uuid& id)
-: m_fileName(shared_memory::instance().get_segment_manager()), m_state(state::WAITING), m_status(shared_memory::instance().get_segment_manager())
+: m_state(state::WAITING), m_status(shared_memory::instance().get_segment_manager())
 {
-  // Correctly handle case when client sent relative file path (extract file name)
-  using path_t = boost::filesystem::path;
-  path_t tmpPath;
-  try 
-  {
-    tmpPath = path_t(fileName, fileName + fnLen);
-  } 
-  catch (const exception& e) 
-  {
-    glog::error() << "Invalid file name! Task id: " << id << '\n';
-    set_state(state::INVALID);
-    return;
-  }
-  if (tmpPath.has_filename())
-  {
-    m_fileName = tmpPath.filename().c_str();
-  }
-  else 
-  {
-    glog::error() << "Bad file name in task constructor: " << tmpPath.c_str() << " task id: " << id << '\n';
-    set_state(state::INVALID);
-    return;
-  }
+  // Initialize uuid
+  const string strUUID = boost::lexical_cast<std::string>(id);
+  copy(strUUID.cbegin(), strUUID.cend(), m_id);
+  m_id[strUUID.size()] = '\0';
   
-  // Copy uuid
-  const string tmp = boost::lexical_cast<std::string>(id);
-  copy(tmp.cbegin(), tmp.cend(), m_id);
-  m_id[tmp.size()] = '\0';
+  // Construct source file name
+  fs::path fname(fileName, fileName + fnLen);
+  string sourceFileName = source_file_name_base + fname.extension().string();
   
-  // Create task directory
-  boost::system::error_code code;
-  string dirPath = dir_path();
-  boost::filesystem::create_directories(dirPath, code);
-  if (boost::system::errc::success != code)
-  {
-    glog::error() << "Error when creating directory: " << dirPath
-           << " Message: " << code.message()
-           << " Id: " << m_id << '\n';
-    set_state(state::INVALID);
-    return;
-  }
+  // Construct task directory, source and test file paths
+  fs::path taskDir = dir_path();
+  fs::path sourcePath = taskDir / sourceFileName;
+  fs::path testPath = taskDir / test_file_name;
   
-  // Write source to disk
-  string srcContent{fileContent, fileContent + fcLen};
-  write_to_disk(source_path(), srcContent);
+  // Create vector of cleanup autocalls
+  vector<autocall> cleanups;
+  cleanups.reserve(4);
   
-  // Write test file to disk
-  string testsContent{testsContents, testsContents + testsCLen};
-  write_to_disk(dirPath + '/' + TESTS_FILE_NAME, testsContent);
-}
-
-task::~task()
-{
-  boost::system::error_code code;
-  string dirPath = dir_path();
-  boost::filesystem::remove_all(dirPath, code);
-  if (boost::system::errc::success != code)
-  {
-    glog::error() << "Error when removing directory: " << dirPath
-           << " Message: " << code.message()
-           << " Id: " << m_id << '\n';
-  }
+  // Create directory for the task files
+  fs::create_directories(taskDir);
+  cleanups.emplace_back([&](){ fs::remove_all(taskDir); });
+  
+  // Zero async_io_req array and sig_event
+  ::memset(static_cast<void*>(m_req), 0, sizeof(m_req));
+  ::memset(static_cast<void*>(m_event), 0, sizeof(m_event));
+  
+  // Open file descriptors for writing
+  int sourceFd, testFd;
+  if ((sourceFd = ::open(sourcePath.c_str(), O_WRONLY)) == -1)
+    throw task_exception(::strerror(errno));
+  cleanups.emplace_back([=]() { ::close(sourceFd); });
+  if ((testFd = ::open(testPath.c_str(), O_WRONLY)) == -1)
+    throw task_exception(::strerror(errno));
+  cleanups.emplace_back([=]() { ::close(testFd); });
+  
+  // Initialize buffer for array of async_io_req
+  byte* reqBuff = new byte[fcLen + testsCLen];
+  cleanups.emplace_back([=](){ delete[] reqBuff;});
+  ::memcpy(reqBuff, fileContent, fcLen);
+  ::memcpy(reqBuff + fcLen, testsContents, testsCLen);
+  
+  // Prepare I/O requests and sig_event member
+  prepare_async_io_req(m_req[0], sourceFd, reqBuff, fcLen, LIO_WRITE);
+  prepare_async_io_req(m_req[1], testFd, reqBuff + fcLen, testsCLen, LIO_WRITE);
+  prepare_sig_event();
+  
+  // Launch asynchronous I/O requests
+  if (::lio_listio(LIO_NOWAIT, m_req, 2, &m_event) == -1)
+    throw task_exception(::strerror(errno));
+  
+  // Reset cleanups
+  for_each(begin(cleanups), end(cleanups), [=](autocall& call) { call.release(); });
 }
 
 task::task(task&& oth)
-: m_fileName(boost::move(oth.m_fileName)), m_state(oth.m_state), m_status(boost::move(oth.m_status))
+:m_state(oth.m_state), m_status(boost::move(oth.m_status))
 {
-  copy(oth.m_id, oth.m_id + UUID_BYTES, m_id);
+  copy(oth.m_id, oth.m_id + uuid_len, m_id);
+  copy(oth.m_req, oth.m_req + 2, m_req);
+  m_event = move(oth.m_event);
+  m_ready = boost::move(oth.m_ready);
+  m_lock = boost::move(oth.m_lock);
 }
 
 task& task::operator=(task&& oth)
 {
   if (&oth != this)
   {
-    m_fileName = boost::move(oth.m_fileName);
-    copy(oth.m_id, oth.m_id + UUID_BYTES, m_id);
+    // Copy other task
+    copy(oth.m_id, oth.m_id + uuid_len, m_id);
     m_state = oth.m_state;
     m_status = boost::move(oth.m_status);
+    copy(oth.m_req, oth.m_req + 2, m_req);
+    m_event = oth.m_event;
+    m_ready = boost::move(oth.m_ready);
+    m_lock = boost::move(oth.m_lock);
+    
+    // Clear other task data
+    ::memset(oth.m_id, 0, uuid_len);
+    oth.m_state = state::INVALID;
+    ::memset(oth.m_req, 0, sizeof(oth.m_req));
+    ::memset(oth.m_event, 0, sizeof(oth.m_event));
   }
   return *this;
 }
 
-void task::run_all()
+task::~task()
 {
+  fs::remove_all(dir_path());
+  wait_for_disk_flush_to_complete();
+}
+
+void task::status(string& fillStatus) const
+{
+  shared_memory& shm = shared_memory::instance();
+  bool deleteMe = false;
+  boost::interprocess::scoped_lock<mutex_type> lock(m_lock);
+  switch(m_state)
+  {
+    case state::INVALID:
+      fillStatus = "{ \"STATE\" : \"INVALID\" }";
+      deleteMe = true;
+      break;
+    case state::WAITING:
+      fillStatus = "{ \"STATE\" : \"WAITING\" }";
+      break;
+    case state::COMPILING:
+      fillStatus = "{ \"STATE\" : \"COMPILING\" }";
+      break;
+    case state::RUNNING:
+      fillStatus = "{ \"STATE\" : \"RUNNING\" }";
+      break;
+    case state::FINISHED:
+    case state::COMPILE_ERROR:
+      fillStatus = m_status.c_str();
+      deleteMe = true;
+      break;
+  }
+  
+  if (deleteMe) shm.destroy_ptr<task>(this);
+}
+
+task::state task::get_state() const
+{
+  boost::interprocess::scoped_lock<mutex_type> lock(m_lock);
+  return m_state;
+}
+
+void task::set_state(task::state newState)
+{
+  boost::interprocess::scoped_lock<mutex_type> lock(m_lock);
+  m_state = newState;
+}
+
+fs::path task::dir_path() const
+{
+  const configuration& conf = configuration::instance();
+  fs::path taskDir = conf.get(configuration::source_base_dir);
+  taskDir /= m_id;
+  return boost::move(taskDir);
+}
+
+void task::run_all(int workerIdx)
+{ 
+  // Safety
+  autocall invalidIfException([=](){ set_state(state::INVALID); });
+  
   // Parse tests
   vector<test> tests;
-  auto memTimeLang = parse_tests(read_from_disk(dir_path() + '/' + TESTS_FILE_NAME) , tests);
+  auto memTimeLang = parse_tests(read_from_disk(dir_path() + '/' + test_file_name) , tests);
 //   size_t memory = get<0>(memTimeLang);
 //   size_t time = get<0>(memTimeLang);
   string language = get<2>(memTimeLang);
   
   // Fetch grader informations for programming language
-  const configuration& conf = configuration::instance();
-  auto graderInfo = conf.get_grader(language);
-  
-  // Check if grader for this language doesn't exists in config.xml
-  if (configuration::INVALID_GR_INFO == graderInfo)
-  {
-    glog::error() << "Couldn't find grader for language: " << language << " in config.xml."
-                  << "Task id: " << m_id << '\n';
-    set_state(state::INVALID);
-    return;
-  }
-  
-  // Get base path where all grader libraries are (check that lib dir is set in config.xml)
-  auto baseLibPathIt = conf.get(configuration::LIB_DIR);
-  if (conf.invalid() == baseLibPathIt)
-  {
-    glog::error() << "Couldn't find entry for directory where all grader libraries are in config.xml."
-                  << "Task id: " << m_id << '\n';
-    set_state(state::INVALID);
-    return;
-  }
-  
-  // Construct library path
-  string libPath = baseLibPathIt->second + "/" + 
-                            configuration::get_lib_name(graderInfo);
-  
-  // This function is place where third party grader plugins can crash
-  // whole application, so std::terminate_handler will be replaced, saved
-  // and restored upon successful completition or upon failure
-  std::terminate_handler defaultHandler = set_terminate(&task::terminate_handler);
-  if (setjmp(g_saveStateBeforeTerminate) != 0)
-  {
-    glog::fatal() << "Uncaught exception raised from plugin! Plugin library on path: " << libPath
-                  << " Task id: " << m_id
-                  << " Terminating task process...\n";
-    
-    // Set task state so it can be deleted
-    set_state(state::INVALID);
-   
-    // Terminate process
-    abort();
-  }
-  
-  // Load library
-  unique_ptr<dynamic::shared_lib> lib;
-  try 
-  {
-    lib.reset(new dynamic::shared_lib{libPath});
-  } 
-  catch (const dynamic::shared_lib_load_failed& e) 
-  {
-    glog::error() << "Loading shared library on path: " << libPath << " failed. "
-           << "Reason: " << e.what() << " Task id: " << m_id << '\n';
-    set_state(state::INVALID);
-    return;
-  }
+  plugin_manager& plmgr = plugin_manager::instance();
+  auto graderInfo = plmgr.get(language);
   
   // Construct grader object
-  auto graderObj = lib->make_object<grader_base>(configuration::get_grader_name(graderInfo));
+  auto graderObj = graderInfo.lib.make_object<grader_base>(graderInfo.class_name);
   if (!graderObj)
   {
     glog::error() << "Failed to create grader object from library."
-                  << " Library path: " << libPath
-                  << " Grader name: " << configuration::get_grader_name(graderInfo)
+                  << " Grader name: " << graderInfo.class_name
                   << " Task id: " << m_id << '\n';
     set_state(state::INVALID);
     return;
@@ -241,34 +252,13 @@ void task::run_all()
   m_status = jsonStr.c_str();
   set_state(task::state::FINISHED);
   
-  // Restore default std::terminate_handler
-  set_terminate(defaultHandler);
+  // Release safety
+  invalidIfException.release();
 }
 
-const char* task::status() const
+void task::wait_for_disk_flush_to_complete()
 {
-  boost::interprocess::scoped_lock<mutex_type> lock(m_lock);
-  switch(m_state)
-  {
-    case state::INVALID:
-      return "{ \"STATE\" : \"INVALID\" }";
-    case state::WAITING:
-      return "{ \"STATE\" : \"WAITING\" }";
-    case state::COMPILING:
-      return "{ \"STATE\" : \"COMPILING\" }";
-    case state::RUNNING:
-      return "{ \"STATE\" : \"RUNNING\" }";
-    case state::FINISHED:
-    case state::COMPILE_ERROR:
-      return m_status.c_str();
-  }
-  return "";
-}
-
-task::state task::get_state() const
-{
-  boost::interprocess::scoped_lock<mutex_type> lock(m_lock);
-  return m_state;
+  m_ready.wait([=](){ return m_req[0].aio_buf == nullptr; });
 }
 
 task* task::create_task(const char* fileName, std::size_t fnLen, const char* fileContent, 
@@ -303,7 +293,7 @@ task::test_attributes task::parse_tests(const string& testsStr, vector<test>& te
   {
     glog::error() << "Couldn't parse tests content (check if tests are xml valid). "
            << "Error message: " << e.what() << '\n';
-    return INVALID_TEST_ATTR;
+    return invalid_test_attr;
   }
   
   // Get memory and time requirements from xml root element 'test'
@@ -311,7 +301,7 @@ task::test_attributes task::parse_tests(const string& testsStr, vector<test>& te
   if (!rootOpt)
   {
     glog::error() << "Bad config.xml file, there should be root element named 'test'.\n";
-    return INVALID_TEST_ATTR;
+    return invalid_test_attr;
   }
   auto root = *rootOpt;
   size_t memoryBytes = root.get<size_t>("<xmlattr>.memory", 0);
@@ -320,17 +310,17 @@ task::test_attributes task::parse_tests(const string& testsStr, vector<test>& te
   if (0 == memoryBytes)
   {
     glog::error() << "No memory constraint as attribute in 'test' element.\n";
-    return INVALID_TEST_ATTR;
+    return invalid_test_attr;
   }
   if (0 == timeMilliseconds)
   {
     glog::error() << "No time constraint as attribute in 'test' element.\n";
-    return INVALID_TEST_ATTR;
+    return invalid_test_attr;
   }
   if ("" == language)
   {
     glog::error() << "No programming language specified as attribute in 'test' element.\n";
-    return INVALID_TEST_ATTR;
+    return invalid_test_attr;
   }
   
   // Traverse through property tree 
@@ -349,7 +339,7 @@ task::test_attributes task::parse_tests(const string& testsStr, vector<test>& te
     if ("input" != treeItBegin->first)
     {
       glog::error() << "Invalid xml format! Expected 'input'!\n";
-      return INVALID_TEST_ATTR;
+      return invalid_test_attr;
     }
     else 
     {
@@ -363,12 +353,12 @@ task::test_attributes task::parse_tests(const string& testsStr, vector<test>& te
       if (treeItBegin == treeItEnd)
       {
         glog::error() << "Invalid xml format! Expected 'output' element after 'input'!\n";
-        return INVALID_TEST_ATTR;
+        return invalid_test_attr;
       }
       if ("output" != treeItBegin->first)
       {
         glog::error() << "Invalid xml format! Expected 'output' element!\n";
-        return INVALID_TEST_ATTR; 
+        return invalid_test_attr; 
       }
       
       // Get output test, add new element to tests vector and advance in tree
@@ -383,71 +373,39 @@ task::test_attributes task::parse_tests(const string& testsStr, vector<test>& te
   return move(make_tuple(memoryBytes, timeMilliseconds, language));
 }
 
-void task::terminate_handler()
+void task::prepare_async_io_req(async_io_req& req, int filedes, void* buff, size_t nbytes, int opcode)
 {
-  longjmp(g_saveStateBeforeTerminate, 1);
+  req.aio_fildes = filedes;
+  req.aio_buf = buff;
+  req.aio_nbytes = nbytes;
+  req.aio_lio_opcode = opcode;
 }
 
-void task::set_state(task::state newState)
+void task::prepare_sig_event()
 {
-  boost::interprocess::scoped_lock<mutex_type> lock(m_lock);
-  m_state = newState;
+  m_event.sigev_notify = SIGEV_THREAD;
+  m_event.notify_function = &handle_disk_flush_done;
+  m_event.notify_attributes = nullptr;
+  m_event.sigev_value.sival_ptr = this;
 }
 
-string task::dir_path() const
+void task::handle_disk_flush_done(sig_val sv)
 {
-  const configuration& conf = configuration::instance();
-  auto baseDirIt = conf.get(configuration::BASE_DIR);
-  if (conf.invalid() == baseDirIt)
-  {
-    return "";
-  }
+  // Get task ptr
+  task* thisTask = reinterpret_cast<task*>(sv.sival_ptr);
   
-  auto dpath = baseDirIt->second + "/" + m_id;
-  return move(dpath);
+  // Free allocated buffer
+  delete[] thisTask->m_req[0].aio_buf;
+  thisTask->m_req[0].aio_buf = nullptr;
+  
+  // Notify all processes that disk flush is done (successful of not)
+  thisTask->m_ready.notify_all();
+  
+  // TODO: Handle errors
+  int errorCode;
+  if (!(errorCode = ::aio_error(thisTask->m_req)))
+    throw task_exception(::strerror(errorCode));
+  if (!(errorCode = ::aio_error(thisTask->m_req + 1)))
+    throw task_exception(::strerror(errorCode));
 }
 
-string task::source_path() const
-{
-  return dir_path() + "/" + m_fileName.c_str();
-}
-
-string task::executable_path() const
-{
-  return dir_path() + "/" + strip_extension(m_fileName.c_str());
-}
-
-string task::strip_extension(const string& fileName) const
-{
-  auto pointPos = fileName.find_last_of('.');
-  return fileName.substr(0, pointPos);
-}
-
-string task::get_extension(const string& fileName) const
-{
-  auto pointPos = fileName.find_last_of('.');
-  return fileName.substr(pointPos + 1);
-}
-
-void task::write_to_disk(const string& path, const string& content)
-{
-  boost::iostreams::mapped_file_params params;
-  params.path = path;
-  params.new_file_size = content.length();
-  params.flags = boost::iostreams::mapped_file::mapmode::readwrite;
-  boost::iostreams::mapped_file mf;
-  mf.open(params);
-  if (mf.is_open())
-    copy(content.cbegin(), content.cend(), mf.data());
-  else 
-  {
-    glog::error() << "Couldn't open memory mapped file for writing: " << path << '\n';
-  }
-}
-
-string task::read_from_disk(const string& path)
-{
-  ifstream tests{path.c_str()};
-  string content{istreambuf_iterator<char>{tests}, istreambuf_iterator<char>{}};
-  return move(content);
-}

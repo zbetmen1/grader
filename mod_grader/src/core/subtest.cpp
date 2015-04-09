@@ -1,6 +1,5 @@
 // Project headers
 #include "subtest.hpp"
-#include "configuration.hpp"
 #include "log.hpp"
 #include "shared_memory.hpp"
 

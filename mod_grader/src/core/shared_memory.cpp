@@ -5,22 +5,32 @@
 using namespace std;
 
 namespace grader 
-{
-  
-  const char* shared_memory::SHM_NAME = "GraderShm01";
-  
+{ 
   shared_memory::shared_memory()
-  : m_memory(boost::interprocess::open_or_create, SHM_NAME, stoul(configuration::instance().get(configuration::SHMEM_SIZE)->second))
-  {}
+  {
+    configuration& conf = configuration::instance();
+    m_memory = shm_type(conf.get(configuration::shmem_name), stoul(conf.get(configuration::shmem_size)));
+  }
 
   shared_memory::~shared_memory()
   {
-    boost::interprocess::shared_memory_object::remove(SHM_NAME);
+    configuration& conf = configuration::instance();
+    boost::interprocess::shared_memory_object::remove(conf.get(configuration::shmem_name));
   }
 
   shared_memory& shared_memory::instance()
   {
     static shared_memory memory;
     return memory;
+  }
+  
+  void* shared_memory::allocate(size_t size)
+  {
+    return m_memory.allocate(size);
+  }
+  
+  handle shared_memory::get_handle_from_address(void* address)
+  {
+    return m_memory.get_handle_from_address(address);
   }
 }
