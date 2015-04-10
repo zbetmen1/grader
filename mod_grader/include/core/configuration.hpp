@@ -31,7 +31,7 @@ namespace grader
     //////////////////////////////////////////////////////////////////////////////
     // Constants
     //////////////////////////////////////////////////////////////////////////////
-    CONFIG_DECL(configuration_path);
+    static const std::string configuration_path;
     CONFIG_DECL(shmem_name);
     CONFIG_DECL(shmem_size);
     CONFIG_DECL(jail_dir);
@@ -39,6 +39,7 @@ namespace grader
     CONFIG_DECL(plugin_dir);
     CONFIG_DECL(jail_user_base_name);
     CONFIG_DECL(source_base_dir);
+    CONFIG_DECL(log_facility);
   private:
     //////////////////////////////////////////////////////////////////////////////
     // Members

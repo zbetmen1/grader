@@ -1,6 +1,5 @@
 #include "shared_memory.hpp"
 #include "configuration.hpp"
-#include "log.hpp"
 
 using namespace std;
 namespace ip = boost::interprocess;

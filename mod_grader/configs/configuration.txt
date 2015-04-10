@@ -1,0 +1,15 @@
+# Shared memory
+shmem_size = 134217728
+shmem_name = GraderShmem01
+
+# Important directories
+jail_dir = /srv/chroot/trusty_amd64
+work_dir = home
+plugin_dir = /home/zbetmen/Documents/grader/mod_grader/build/
+source_base_dir = opt/sources
+
+# Grader jail user
+jail_user_base_name = grader_jail_
+
+# Log
+log_facility = 5

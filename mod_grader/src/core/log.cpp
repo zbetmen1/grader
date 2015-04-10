@@ -1,72 +1,67 @@
 // Project headers
 #include "log.hpp"
+#include "configuration.hpp"
 
 namespace grader 
 {
-  log::log(grader::log::severity appSeverity)
-  : m_buffer(), m_currentSeverity(severity::INVALID), m_severity(appSeverity)
+  const char* log::log_name = "grader_system";
+  
+  log::log()
+  : m_severity(invalid_pr)
   {
-    if (appSeverity == severity::INVALID)
-      throw log_construction_error("Log severity specified is invalid!");
-    
-    ::openlog(nullptr, LOG_PID, LOG_LOCAL7);
+    configuration& conf = configuration::instance();
+    ::openlog(log_name, LOG_PID, get_log_facility(stoi(conf.get(configuration::log_facility))));
   }
-
+  
   log::~log()
   {
     flush();
     ::closelog();
   }
   
-  log& log::instance(grader::log::severity appSeverity)
-  {
-    static log l(appSeverity);
-    return l;
+  log& log::instance()
+  { 
+    static log l;
+    return l; 
   }
   
-  void log::flush()
+  void log::flush() 
   {
-    if (m_currentSeverity != severity::INVALID)
+    ::syslog(m_severity, "%s", m_stream.str().c_str());
+    m_stream.clear();
+    m_severity = invalid_pr;
+  }
+  
+  int log::get_log_facility(int facilityNumber)
+  {
+    switch (facilityNumber) 
     {
-      ::syslog(static_cast<int>(m_currentSeverity), "%s", m_buffer.str().c_str());
-      
-      m_buffer.clear();
-      m_currentSeverity = severity::INVALID;
+      case 0:
+        return LOG_LOCAL0;
+      case 1:
+        return LOG_LOCAL1;
+      case 2:
+        return LOG_LOCAL2;
+      case 3:
+        return LOG_LOCAL3;
+      case 4:
+        return LOG_LOCAL4;
+      case 5:
+        return LOG_LOCAL5;
+      case 6:
+        return LOG_LOCAL6;
+      case 7:
+        return LOG_LOCAL7;
+      default:
+        THROW_SMART(log_exception, "Unknown facility number!");
     }
   }
   
-  log& log::set_severity(log::severity currentSeverity)
+  log& log::operator<<(sev priority)
   {
-    log& l = glog::instance();
-    if (l.m_currentSeverity != severity::INVALID)
-      l.flush();
-    
-    l.m_currentSeverity = currentSeverity;
-    return l;
-  }
-  
-  log& log::debug()
-  {
-    return set_severity(severity::DEBUG);
-  }
- 
-  log& log::info()
-  {
-    return set_severity(severity::INFO);
-  }
-  
-  log& log::warning()
-  {
-    return set_severity(severity::WARNING);
-  }
-  
-  log& log::error()
-  {
-    return set_severity(severity::ERROR);
-  }
-  
-  log& log::fatal()
-  {
-    return set_severity(severity::FATAL);
+    if (m_severity != invalid_pr)
+      flush();
+    m_severity = static_cast<int>(priority);
+    return *this;
   }
 }

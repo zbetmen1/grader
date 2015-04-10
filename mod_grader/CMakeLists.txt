@@ -24,8 +24,8 @@ add_library(process_utils SHARED src/utils/process/safe_process.cpp
 target_link_libraries(process_utils ${Boost_LIBRARIES})
 
 add_library(grader SHARED src/core/configuration.cpp
-                          src/core/plugin_manager.cpp
                           src/core/log.cpp
+                          src/core/plugin_manager.cpp
                           src/core/shared_memory.cpp)
                           
 target_link_libraries(grader ${Boost_LIBRARIES} dynamic_utils process_utils)

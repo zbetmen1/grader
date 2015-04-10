@@ -12,7 +12,7 @@ using namespace std;
 
 namespace grader 
 {
-  CONFIG_DEF(configuration_path);
+  const string configuration::configuration_path = "/etc/grader/conf.txt";
   CONFIG_DEF(shmem_name);
   CONFIG_DEF(shmem_size);
   CONFIG_DEF(jail_dir);
@@ -20,6 +20,7 @@ namespace grader
   CONFIG_DEF(plugin_dir);
   CONFIG_DEF(jail_user_base_name);
   CONFIG_DEF(source_base_dir);
+  CONFIG_DEF(log_facility);
   
   configuration::configuration()
   {
@@ -54,7 +55,7 @@ namespace grader
       
       auto equalityPos = line.find('=');
       if (equalityPos == string::npos)
-        throw configuration_exception("Invalid configuration, '=' was not found in one of lines!");
+        continue;
       
       string key = line.substr(0, equalityPos);
       string val = line.substr(equalityPos + 1);
