@@ -16,8 +16,6 @@
 #include <unistd.h>
 #include <sys/types.h>
 
-namespace fs = boost::filesystem;
-
 namespace grader 
 {
   class daemon_exception: public std::runtime_error 
@@ -73,7 +71,6 @@ namespace grader
   };
   
   void main_loop(int workerIdx);
-  uid_t create_user_if_not_exists(int userId);
 }
 
 #endif // DAEMON_HPP

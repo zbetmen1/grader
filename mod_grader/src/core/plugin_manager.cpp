@@ -75,7 +75,7 @@ namespace grader
     
     // Iterate through directory and load plugins
     fs::directory_iterator endIt;
-    for (fs::directory_iterator it = pluginPath; it != endIt; ++it)
+    for (fs::directory_iterator it(pluginPath); it != endIt; ++it)
     {
       if (fs::is_regular_file(it->status()))
       {

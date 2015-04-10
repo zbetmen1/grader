@@ -47,17 +47,19 @@ namespace grader
 
 namespace std 
 {
-  template <> struct hash<plugin_info>
+  template <> 
+  struct hash<grader::plugin_info>
   {
-    std::size_t operator()(const grader::plugin_info& plg)
+    std::size_t operator()(const grader::plugin_info& plg) const
     {
-      return std::hash<std::string>{}(plg.lang_name);
+      return std::hash<std::string>()(plg.lang_name);
     }
   };
   
-  template <> struct equal_to<plugin_info>
+  template <> 
+  struct equal_to<grader::plugin_info>
   {
-    bool operator()(const grader::plugin_info& lhs, const grader::plugin_info& rhs)
+    bool operator()(const grader::plugin_info& lhs, const grader::plugin_info& rhs) const
     {
       return lhs.lang_name == rhs.lang_name;
     }

@@ -6,6 +6,7 @@
 #include <fstream>
 #include <sstream>
 #include <algorithm>
+#include <utility>
 
 using namespace std;
 
@@ -61,7 +62,7 @@ namespace grader
       trim(key);
       trim(val);
       
-      m_conf.insert(move(key), move(val));
+      m_conf.emplace(move(key), move(val));
     }
   }
 
@@ -91,7 +92,8 @@ namespace grader
 
   void trim(string& str)
   {
-    ltrim(rtrim(str));
+    rtrim(str);
+    ltrim(str);
   }
 
 }

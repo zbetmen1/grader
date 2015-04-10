@@ -34,7 +34,6 @@ namespace grader
     using shm_condition = boost::interprocess::interprocess_condition;
     template <typename T>
     using shm_ptr = boost::interprocess::offset_ptr<T>;
-    using handle = shm_type::handle_t;
   private:
     
     //////////////////////////////////////////////////////////////////////////////
@@ -53,10 +52,6 @@ namespace grader
     //////////////////////////////////////////////////////////////////////////////
     // Operations
     //////////////////////////////////////////////////////////////////////////////
-    void* allocate(std::size_t size);
-    
-    handle get_handle_from_address(void* address);
-    
     template<typename T, typename NameT, typename... Args>
     T* find_or_construct(NameT name, Args... args)
     {
