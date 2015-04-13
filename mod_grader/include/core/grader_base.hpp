@@ -68,10 +68,7 @@ namespace grader
     virtual const char* executable_extension() const { return ""; };
     
     // Different languages require different ways to start process (for example Java uses 'java StartMe.class')
-    virtual Poco::ProcessHandle start_executable_process(const std::string& executable, 
-                                                         const std::vector< std::string >& args, 
-                                                         const std::string& workingDir, Poco::Pipe* toExecutable, 
-                                                         Poco::Pipe* fromExecutable) const;
+    virtual Poco::ProcessHandle start_executable_process(const std::string& executable, const std::vector< std::string >& args, const std::string& workingDir, Poco::Pipe* toExecutable, Poco::Pipe* fromExecutable) const;
     
   private:
     // Utilities

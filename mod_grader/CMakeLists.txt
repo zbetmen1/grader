@@ -46,3 +46,7 @@ target_link_libraries(grader_py grader ${Boost_LIBRARIES})
 # Compile grader_cpp11
 add_library(grader_cpp11 SHARED src/plugins/grader_cpp11.cpp)
 target_link_libraries(grader_cpp11 grader)
+
+# Compile java grader
+add_library(grader_java SHARED src/plugins/grader_java.cpp)
+target_link_libraries(grader_java grader)

@@ -10,7 +10,7 @@
   
   <!--Important directories and files-->
   <BASE_DIR>/home/zbetmen/students</BASE_DIR>
-  <LIB_DIR>/home/zbetmen/Documents/grader/mod_grader/build</LIB_DIR>
+  <LIB_DIR>/home/zbetmen/Documents/programming/grader/mod_grader/build</LIB_DIR>
   <LOG_DIR>/var/log/grader</LOG_DIR>
   
   <!--Log stuff (except log dir is in important directories section)-->
@@ -41,5 +41,10 @@
     <NAME>py</NAME>
     <GRADER>grader_py</GRADER>
     <LIB>libgrader_py.so</LIB>
+  </LANGUAGE>
+  <LANGUAGE>
+    <NAME>java</NAME>
+    <GRADER>grader_java</GRADER>
+    <LIB>libgrader_java.so</LIB>
   </LANGUAGE>
 </config>
