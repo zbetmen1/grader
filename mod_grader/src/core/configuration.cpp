@@ -14,7 +14,7 @@ using namespace boost::property_tree;
 
 namespace grader
 {
-
+  
 // Static flags
 bool configuration::s_loaded = false;
 
@@ -114,11 +114,21 @@ const configuration& configuration::instance() noexcept
   return singleton;
 }
 
+boost::interprocess::permissions& perm()
+{
+  static boost::interprocess::permissions perms;
+  perms.set_unrestricted();
+  return perms;
+}
+
 boost::interprocess::managed_shared_memory& shm()
 {
   static boost::interprocess::managed_shared_memory sshm(boost::interprocess::open_or_create, 
                                                           configuration::instance().get(configuration::SHMEM_NAME)->second.c_str(), 
-                                                          stoul(configuration::instance().get(configuration::SHMEM_SIZE)->second));
+                                                          stoul(configuration::instance().get(configuration::SHMEM_SIZE)->second),
+                                                          0,
+                                                          perm()
+                                                        );
   return sshm;
 }
 

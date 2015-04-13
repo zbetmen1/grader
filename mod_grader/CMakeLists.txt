@@ -50,3 +50,9 @@ target_link_libraries(grader_cpp11 grader)
 # Compile java grader
 add_library(grader_java SHARED src/plugins/grader_java.cpp)
 target_link_libraries(grader_java grader)
+
+# Compile PHP extension
+include_directories(/usr/include/php5 /usr/include/php5/main /usr/include/php5/TSRM /usr/include/php5/Zend /usr/include/php5/ext /usr/include/php5/ext/date/lib)
+add_library(grader_php SHARED src/web/grader_interface.cpp src/web/grader_php_wrap.c)
+set_target_properties(grader_php PROPERTIES PREFIX "")
+target_link_libraries(grader_php grader)

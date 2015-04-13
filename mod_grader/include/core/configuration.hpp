@@ -100,6 +100,8 @@ namespace grader
   
   boost::interprocess::managed_shared_memory& shm();
   
+  boost::interprocess::permissions& perm();
+  
   template <typename T>
   void shm_destroy(const char* name)
   {

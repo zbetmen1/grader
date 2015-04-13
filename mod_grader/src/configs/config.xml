@@ -5,7 +5,7 @@
   <SHELL_CMD_FLAG>-c</SHELL_CMD_FLAG>
   
   <!--Interprocess memory configuration-->
-  <SHMEM_NAME>grader_1_39</SHMEM_NAME>
+  <SHMEM_NAME>grader_1_40</SHMEM_NAME>
   <SHMEM_SIZE>134217728</SHMEM_SIZE>
   
   <!--Important directories and files-->
