@@ -8,6 +8,12 @@
 #include <stdexcept>
 #include <iterator>
 #include <sstream>
+#include <csignal>
+
+// Unix headers
+#include <sys/wait.h>
+#include <unistd.h>
+#include <sys/time.h>
 
 // BOOST headers
 #include <boost/iostreams/device/mapped_file.hpp>
@@ -23,6 +29,9 @@
 using namespace std;
 using namespace grader;
 
+task* grader_base::theTask = nullptr;
+int grader_base::thePid = -1;
+
 grader_base::grader_base()
 {
 }
@@ -30,6 +39,7 @@ grader_base::grader_base()
 void grader_base::initialize(task* t)
 {
   m_task = t;
+  theTask = t; // nasty hack
   m_dirPath = dir_path();
   m_executablePath = executable_path();
   m_sourcePath = source_path() + executable_extension();
@@ -43,6 +53,10 @@ void grader_base::initialize(task* t)
            << " Id: " << m_task->id();
     LOG(logmsg.str(), grader::ERROR);
   }
+  
+  // Set timeout handler
+  if (::signal(SIGALRM, &handle_timeout) == SIG_ERR)
+    throw runtime_error(::strerror(errno));
 }
 
 grader_base::~grader_base()
@@ -525,6 +539,7 @@ bool grader_base::evaluate_output_stdin(Poco::PipeInputStream& fromExecutableStr
                                         const Poco::ProcessHandle& ph) const
 {
   int retCode = ph.wait();
+  reset_alarm();
   if (0 != retCode) return false;
   if (fromExecutableStream.fail())
   {
@@ -587,5 +602,34 @@ bool grader_base::evaluate_output_file(const string& absolutePath, const subtest
 Poco::ProcessHandle grader_base::start_executable_process(const string& executable, const vector< string >& args, const string& workingDir, 
                                                           Poco::Pipe* toExecutable, Poco::Pipe* fromExecutable) const
 {
-  return Poco::Process::launch(executable, args, workingDir, toExecutable, fromExecutable, nullptr);
+  set_alarm();
+  Poco::ProcessHandle ph = Poco::Process::launch(executable, args, workingDir, toExecutable, fromExecutable, nullptr);
+  thePid = ph.id();
+  return ph;
+}
+
+void grader_base::set_alarm() const
+{
+  size_t timeL = m_task->time();
+  struct itimerval timer;
+  timer.it_interval.tv_sec = 0;
+  timer.it_interval.tv_usec = 0;
+  timer.it_value.tv_sec = timeL / 1000;
+  timer.it_value.tv_usec = (timeL % 1000) * 1000;
+  if (setitimer(ITIMER_REAL, &timer, nullptr) == -1)
+    throw runtime_error(::strerror(errno));
+}
+
+void grader_base::reset_alarm() const
+{
+  if (setitimer(ITIMER_REAL, nullptr, nullptr) == -1)
+    throw runtime_error(::strerror(errno));
+}
+
+void grader_base::handle_timeout(int)
+{
+  kill(thePid, SIGKILL);
+  waitpid(thePid, 0, 0);
+  theTask->set_state(task::state::TIME_LIMIT);
+  exit(EXIT_SUCCESS);
 }

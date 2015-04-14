@@ -2,5 +2,5 @@
 
 int main()
 {
-  sleep(30);
+  sleep(2);
 }

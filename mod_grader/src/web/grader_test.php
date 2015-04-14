@@ -19,7 +19,7 @@
   {
     while (true)
     {
-      sleep(1);
+      sleep(2);
       $status = grader_php::get_task_status($taskId);
       
       echo "Status is: ". $status . "\n";

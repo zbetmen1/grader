@@ -250,14 +250,13 @@ const char* task::status() const
 }
 
 task* task::create_task(const char* fileName, std::size_t fnLen, const char* fileContent, 
-                        std::size_t fcLen, const char* testsContent, std::size_t testsCLen, pair<size_t, size_t>* timeMemReq)
+                        std::size_t fcLen, const char* testsContent, std::size_t testsCLen)
 {
   // Generate uuid
   auto uuid = boost::uuids::random_generator()();
   shm_test_vector tests(shm().get_segment_manager());
   auto memTimeLang = parse_tests(testsContent, testsCLen, tests);
   if (INVALID_TEST_ATTR == memTimeLang) return nullptr;
-  if (timeMemReq) *timeMemReq = make_pair(get<1>(memTimeLang), get<0>(memTimeLang));
   return shm().construct<task>(boost::uuids::to_string(uuid).c_str())(fileName, fnLen, fileContent, 
                                                                       fcLen, move(tests), uuid, 
                                                                       get<0>(memTimeLang), get<1>(memTimeLang),

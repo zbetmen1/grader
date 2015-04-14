@@ -59,6 +59,7 @@ namespace grader
     state m_state; /**< This field is used for tracking current state of task (is task waiting in queue, or is it executing etc.).  */ 
     shm_string m_status; /**< Status is JSON encoded message to be returned when status is queried from Web module. */
     char m_language[16]; /**< Language in which source code is written. */ 
+
   public:
     // Task must be created with factory function (see create_task method)
     explicit task(const char* fileName, std::size_t fnLen, const char* fileContent, std::size_t fcLen, 
@@ -77,6 +78,8 @@ namespace grader
     const char* file_name() const { return m_fileName.c_str(); }
     const char* file_content() const { return m_fileContent.c_str(); }
     const char* id() const { return m_id; }
+    std::size_t time() const { return m_timeMS; }
+    std::size_t memory() const { return m_memoryBytes; }
     
     // API
     const char* status() const; // Must be interprocess safe
@@ -85,7 +88,7 @@ namespace grader
 
     // Static API
     static task* create_task(const char* fileName, std::size_t fnLen, const char* fileContent, std::size_t fcLen,
-                             const char* testsContent, std::size_t testsCLen, std::pair<std::size_t, std::size_t>* timeMemReq = nullptr);
+                             const char* testsContent, std::size_t testsCLen);
     static bool is_valid_task_name(const char* name);
   private:
     static test_attributes parse_tests(const char* testsContent, std::size_t testsCLen, grader::task::shm_test_vector& tests);

@@ -31,6 +31,9 @@ namespace grader
     std::string m_dirPath;
     std::string m_executablePath;
     std::string m_sourcePath;
+    
+    static task* theTask;
+    static int thePid;
   public:
     // Grader is DefaultConstructible
     grader_base();
@@ -96,7 +99,10 @@ namespace grader
     
     bool evaluate_output_stdin(Poco::PipeInputStream& fromExecutableStream, const grader::subtest& out, const Poco::ProcessHandle& ph) const;
     bool evaluate_output_file(const std::string& absolutePath, const subtest& out, const Poco::ProcessHandle& ph) const;
-                                   
+
+    static void handle_timeout(int);
+    void set_alarm() const;
+    void reset_alarm() const;
   };
 }
 
