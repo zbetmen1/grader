@@ -8,6 +8,7 @@
 #include <csignal>
 #include <errno.h>
 #include <cstring>
+#include <fstream>
 
 #include <unistd.h>
 #include <sys/types.h>
@@ -46,16 +47,22 @@ char* submit_new_task(char* sourceName, char* sourceCont, char* test)
       throw runtime_error("Second fork failed so no grandchild!");
     else if (g_grandchildPid)
     {
+      // Set timeout handler
       g_task = nextTask;
       if (::signal(SIGALRM, &handle_timeout) == SIG_ERR)
         throw runtime_error(::strerror(errno));
+      
+      // Set memory limit
+      
+      // Set timer
       struct itimerval timer;
       timer.it_interval.tv_sec = 0;
       timer.it_interval.tv_usec = 0;
       timer.it_value.tv_sec = timeMemReq.first / 1000;
-      timer.it_value.tv_usec = (timeMemReq.second % 1000) * 1000 ;
+      timer.it_value.tv_usec = (timeMemReq.first % 1000) * 1000 ;
       if (::setitimer(ITIMER_REAL, &timer, nullptr) == -1)
         throw runtime_error(::strerror(errno));
+      
       pause();
     }
     else 
@@ -95,10 +102,10 @@ void handle_timeout(int)
   }
   else if (!result) // Child still running
   {
-    if (::kill(SIGKILL, g_grandchildPid) == -1)
-    {
+    if (::kill(g_grandchildPid, SIGKILL) == -1)
       throw runtime_error(::strerror(errno));
-    }
+    if (::waitpid(g_grandchildPid, &status, 0) == -1)
+      throw runtime_error(::strerror(errno));
     g_task->set_state(task::state::TIME_LIMIT);
     
     g_task = nullptr;

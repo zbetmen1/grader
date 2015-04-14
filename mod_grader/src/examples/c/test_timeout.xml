@@ -1,0 +1,33 @@
+<test memory="67108864" time="1250" language="c">
+  <input type="std">
+    10 
+    1 
+    2 
+    3 
+    4 
+    5 
+    6 
+    7 
+    8 
+    9 
+    10
+  </input>
+  <output type="std">
+    55
+  </output>
+  
+  <input type="std">0</input>
+  <output type="std">0</output>
+  
+  <input type="std">
+    7 
+    -1 
+    1 
+    -2 
+    3 
+    -4 
+    3 
+    1
+  </input>
+  <output type="std">1</output>
+</test>
