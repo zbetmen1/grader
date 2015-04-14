@@ -37,7 +37,7 @@ jmp_buf g_saveStateBeforeTerminate;
 task::task(const char* fileName, std::size_t fnLen, const char* fileContent, std::size_t fcLen, 
             shm_test_vector&& tests, const boost::uuids::uuid& id, size_t memoryBytes, size_t timeMS, const string& language)
 : m_fileName(shm().get_segment_manager()), m_fileContent(shm().get_segment_manager()), m_tests(boost::move(tests)), 
-m_memoryBytes(memoryBytes), m_timeMS(timeMS), m_state(state::WAITING), m_status(shm().get_segment_manager())
+m_memoryBytes(memoryBytes), m_timeMS(timeMS), m_state(state::WAITING), m_status(shm().get_segment_manager()), m_idxOfLastTest(0)
 {
   // Correctly handle case when client sent relative file path (extract file name)
   using path_t = boost::filesystem::path;
@@ -208,6 +208,7 @@ void task::run_all()
   for (const auto& t : m_tests)
   {
     bool res = graderObj->run_test(t);
+    ++m_idxOfLastTest;
     testResults.push_back(res);
   }
   
@@ -230,6 +231,7 @@ void task::run_all()
 const char* task::status() const
 {
   boost::interprocess::scoped_lock<mutex_type> lock(s_lock);
+  string msg;
   switch(m_state)
   {
     case state::INVALID:
@@ -240,8 +242,12 @@ const char* task::status() const
       return "{ \"STATE\" : \"COMPILING\" }";
     case state::RUNNING:
       return "{ \"STATE\" : \"RUNNING\" }";
-    case state::TIME_LIMIT: 
-      return "{ \"STATE\" : \"TIME_LIMIT\" }";
+    case state::TIME_LIMIT:
+      msg = "{ \"STATE\" : \"TIME_LIMIT\",\n";
+      msg += "\t\"TEST\" : \"";
+      msg += to_string(m_idxOfLastTest);
+      msg += "\" }";
+      return msg.c_str();
     case state::FINISHED:
     case state::COMPILE_ERROR:
       return m_status.c_str();

@@ -59,7 +59,7 @@ namespace grader
     state m_state; /**< This field is used for tracking current state of task (is task waiting in queue, or is it executing etc.).  */ 
     shm_string m_status; /**< Status is JSON encoded message to be returned when status is queried from Web module. */
     char m_language[16]; /**< Language in which source code is written. */ 
-
+    unsigned m_idxOfLastTest;
   public:
     // Task must be created with factory function (see create_task method)
     explicit task(const char* fileName, std::size_t fnLen, const char* fileContent, std::size_t fcLen, 
