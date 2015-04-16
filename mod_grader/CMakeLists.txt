@@ -26,10 +26,6 @@ add_library(mod_grader SHARED src/web/mod_grader.cpp src/web/request_parser.cpp)
 target_link_libraries(mod_grader grader)
 set_target_properties(mod_grader PROPERTIES PREFIX "")
 set_target_properties(mod_grader PROPERTIES COMPILE_FLAGS "-pipe -g -O2 -fstack-protector --param=ssp-buffer-size=4 -Wformat -Werror=format-security")
-
-# Deploy Apache module (note that you must implement this script on your own machine)
-add_custom_command(TARGET mod_grader POST_BUILD 
-                   COMMAND deploy_grader.sh ${PROJECT_SOURCE_DIR}/build/)
                    
 # Compile grader_c
 add_library(grader_c SHARED src/plugins/grader_c.cpp)
