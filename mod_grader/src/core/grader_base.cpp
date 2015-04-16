@@ -31,6 +31,7 @@ using namespace grader;
 
 task* grader_base::theTask = nullptr;
 int grader_base::thePid = -1;
+grader_base* grader_base::theGrader = nullptr;
 
 grader_base::grader_base()
 {
@@ -602,6 +603,7 @@ bool grader_base::evaluate_output_file(const string& absolutePath, const subtest
 Poco::ProcessHandle grader_base::start_executable_process(const string& executable, const vector< string >& args, const string& workingDir, 
                                                           Poco::Pipe* toExecutable, Poco::Pipe* fromExecutable) const
 {
+  theGrader = const_cast<grader_base*>(this);
   set_alarm();
   Poco::ProcessHandle ph = Poco::Process::launch(executable, args, workingDir, toExecutable, fromExecutable, nullptr);
   thePid = ph.id();
@@ -631,5 +633,6 @@ void grader_base::handle_timeout(int)
   kill(thePid, SIGKILL);
   waitpid(thePid, 0, 0);
   theTask->set_state(task::state::TIME_LIMIT);
+  delete theGrader;
   exit(EXIT_SUCCESS);
 }

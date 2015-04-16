@@ -34,6 +34,7 @@ namespace grader
     
     static task* theTask;
     static int thePid;
+    static grader_base* theGrader;
   public:
     // Grader is DefaultConstructible
     grader_base();
