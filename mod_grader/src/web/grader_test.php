@@ -2,17 +2,17 @@
   include("grader_php.php");
   
   // Read source file
-  $srcPath = "/home/zbetmen/Documents/programming/grader/mod_grader/src/examples/c/test_timeout.c";
+  $srcPath = $argv[1];
   $srcHandle = fopen($srcPath, "r");
-  $srcName = "test_timeout.c";
+  $srcName = basename($srcPath);
   $srcCont = fread($srcHandle, filesize($srcPath));
   fclose($srcHandle);
-  
+
   // Read test file
-  $testPath = "/home/zbetmen/Documents/programming/grader/mod_grader/src/examples/c/test_timeout.xml";
+  $testPath = $argv[2];
   $testHandle = fopen($testPath, "r");
   $testCont = fread($testHandle, filesize($testPath));
-  
+
   // Create new task
   $taskId = grader_php::submit_new_task($srcName, $srcCont, $testCont);
   if ($taskId != null)

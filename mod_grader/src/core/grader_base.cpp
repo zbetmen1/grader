@@ -250,6 +250,7 @@ bool grader_base::compile(string& compileErr) const
     {
       compileErr = move(string(istreambuf_iterator<char>(errPipeStream),
                                 istreambuf_iterator<char>()));
+      boost::erase_all(compileErr, m_dirPath);
     }
     else 
     {
