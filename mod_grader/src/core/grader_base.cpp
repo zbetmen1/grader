@@ -597,8 +597,10 @@ bool grader_base::evaluate_output_file(const string& absolutePath, const subtest
     LOG(logmsg.str(), grader::WARNING);
     return false;
   }
+  string expectedRes = out.content().c_str();
   boost::trim(resStr);
-  return resStr == out.content().c_str();
+  boost::trim(expectedRes);
+  return resStr == expectedRes;
 }
 
 Poco::ProcessHandle grader_base::start_executable_process(const string& executable, const vector< string >& args, const string& workingDir, 
