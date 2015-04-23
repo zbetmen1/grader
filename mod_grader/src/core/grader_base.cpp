@@ -564,9 +564,18 @@ bool grader_base::evaluate_output_stdin(Poco::PipeInputStream& fromExecutableStr
     return false;
   }
   auto resStr = move(result.str());
-  cerr << ("Result is: '" + resStr + "' Expected: '" + out.content().c_str() + "'\n");
-  boost::trim(resStr);
-  return resStr == out.content().c_str();
+  string expectedRes = out.content().c_str();
+  boost::trim_if(resStr, boost::is_any_of(" \t\r\n"));
+  boost::trim_if(expectedRes, boost::is_any_of(" \t\r\n"));
+  bool match = resStr == expectedRes;
+  if (!match)
+  {
+    stringstream logmsg;
+    logmsg << "Test failed. Task id: '" << m_task->id() << "'.\nExpected: '" << expectedRes 
+           << "'\nGot: '" << resStr << "'.";
+    LOG(logmsg.str(), grader::WARNING);
+  }
+  return match;
 }
 
 // TODO: Switch to memory mapped file output evaluation
@@ -594,7 +603,7 @@ bool grader_base::evaluate_output_file(const string& absolutePath, const subtest
            << "Function: evaluate_output_file "
            << "Id: " << m_task->id()
            << "Path: " << absolutePath;
-    LOG(logmsg.str(), grader::WARNING);
+    LOG(logmsg.str(), grader::DEBUG);
     return false;
   }
   string expectedRes = out.content().c_str();
@@ -606,7 +615,7 @@ bool grader_base::evaluate_output_file(const string& absolutePath, const subtest
     stringstream logmsg;
     logmsg << "Test failed. Task id: '" << m_task->id() << "'.\nExpected: '" << expectedRes 
            << "'\nGot: '" << resStr << "'.";
-    LOG(logmsg.str(), grader::DEBUG);
+    LOG(logmsg.str(), grader::WARNING);
   }
   return match;
 }
