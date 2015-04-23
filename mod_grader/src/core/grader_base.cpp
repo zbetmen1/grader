@@ -573,7 +573,7 @@ bool grader_base::evaluate_output_stdin(Poco::PipeInputStream& fromExecutableStr
     stringstream logmsg;
     logmsg << "Test failed. Task id: '" << m_task->id() << "'.\nExpected: '" << expectedRes 
            << "'\nGot: '" << resStr << "'.";
-    LOG(logmsg.str(), grader::WARNING);
+    LOG(logmsg.str(), grader::INFO);
   }
   return match;
 }
@@ -615,7 +615,7 @@ bool grader_base::evaluate_output_file(const string& absolutePath, const subtest
     stringstream logmsg;
     logmsg << "Test failed. Task id: '" << m_task->id() << "'.\nExpected: '" << expectedRes 
            << "'\nGot: '" << resStr << "'.";
-    LOG(logmsg.str(), grader::WARNING);
+    LOG(logmsg.str(), grader::INFO);
   }
   return match;
 }
