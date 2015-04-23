@@ -7,12 +7,14 @@
   $srcName = basename($srcPath);
   $srcCont = fread($srcHandle, filesize($srcPath));
   fclose($srcHandle);
-
+  echo "Read source!";
+  
   // Read test file
   $testPath = $argv[2];
   $testHandle = fopen($testPath, "r");
   $testCont = fread($testHandle, filesize($testPath));
-
+  echo "Read test!";
+  
   // Create new task
   $taskId = grader_php::submit_new_task($srcName, $srcCont, $testCont);
   if ($taskId != null)

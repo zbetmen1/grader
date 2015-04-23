@@ -600,7 +600,15 @@ bool grader_base::evaluate_output_file(const string& absolutePath, const subtest
   string expectedRes = out.content().c_str();
   boost::trim(resStr);
   boost::trim(expectedRes);
-  return resStr == expectedRes;
+  bool match = resStr == expectedRes;
+  if (!match)
+  {
+    stringstream logmsg;
+    logmsg << "Test failed. Task id: '" << m_task->id() << "'.\nExpected: '" << expectedRes 
+           << "'\nGot: '" << resStr << "'.";
+    LOG(logmsg.str(), grader::DEBUG);
+  }
+  return match;
 }
 
 Poco::ProcessHandle grader_base::start_executable_process(const string& executable, const vector< string >& args, const string& workingDir, 
