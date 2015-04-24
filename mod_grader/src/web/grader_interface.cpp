@@ -2,9 +2,15 @@
 #include "task.hpp"
 #include "configuration.hpp"
 #include <signal.h>
+#include <sys/wait.h>
 
 using namespace std;
 using namespace grader;
+
+void handle_child(int)
+{
+  waitpid(-1, 0, WNOHANG);
+}
 
 char* submit_new_task(char* sourceName, char* sourceCont, char* test)
 {
@@ -13,12 +19,12 @@ char* submit_new_task(char* sourceName, char* sourceCont, char* test)
                                      sourceCont, 
                                      strlen(sourceCont), 
                                      test, strlen(test));
+  signal(SIGCHLD, &handle_child);
   pid_t childPid = ::fork();
   if (childPid == -1)
     return nullptr;
   else if (childPid)
   {
-    LOG("Parent: " + std::to_string(getpid()), grader::DEBUG);
     const char* tid = nextTask->id();
     char* tidHeap = (char*) calloc(strlen(tid) + 1, sizeof(char));
     strcpy(tidHeap, tid);
@@ -26,9 +32,6 @@ char* submit_new_task(char* sourceName, char* sourceCont, char* test)
   }
   else 
   {
-    LOG("Child: " + std::to_string(getpid()), grader::DEBUG);
-    if (::daemon(0, 0) == -1)
-      LOG(::strerror(errno), grader::ERROR);
     nextTask->run_all();
     exit(EXIT_SUCCESS);
   }
