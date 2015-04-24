@@ -245,7 +245,7 @@ const char* task::status() const
     case state::TIME_LIMIT:
       msg = "{ \"STATE\" : \"TIME_LIMIT\",\n";
       msg += "\t\"TEST\" : \"";
-      msg += to_string(m_idxOfLastTest);
+      msg += std::to_string(m_idxOfLastTest);
       msg += "\" }";
       return msg.c_str();
     case state::FINISHED:

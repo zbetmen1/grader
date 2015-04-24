@@ -2,83 +2,23 @@
 #include "grader_log.hpp"
 #include "configuration.hpp"
 
-// BOOST headers
-#include <boost/interprocess/sync/interprocess_mutex.hpp>
-#include <boost/interprocess/sync/scoped_lock.hpp>
-using mutex_type = boost::interprocess::interprocess_mutex;
-
-using namespace boost::log;
 using namespace std;
-
-mutex_type* g_lockLog = grader::shm().find_or_construct<mutex_type>("OgisaVoliSandru")();
 
 namespace grader
 {
   logger::logger()
   {
-    const configuration& conf = configuration::instance();
-    boost::log::register_simple_formatter_factory< boost::log::trivial::severity_level, char >("Severity");
-    add_common_attributes();
-    add_file_log(keywords::file_name = conf.get(configuration::LOG_DIR)->second + '/' + conf.get(configuration::LOG_FILE)->second, 
-               keywords::rotation_size = 10 * 1024 * 1024,
-               keywords::time_based_rotation = sinks::file::rotation_at_time_point(0, 0, 0),
-               keywords::format = "<%Severity%> [%TimeStamp%]: %Message%",
-               keywords::auto_flush = true
-              );
-    string logLevel = conf.get(configuration::LOG_LEVEL)->second;
-    if ("TRACE" == logLevel)
-    {
-      core::get()->set_filter(trivial::severity >= trivial::trace);
-    }
-    else if ("DEBUG" == logLevel)
-    {
-      core::get()->set_filter(trivial::severity >= trivial::debug);
-    }
-    else if ("INFO" == logLevel)
-    {
-      core::get()->set_filter(trivial::severity >= trivial::info);
-    }
-    else if ("WARNING" == logLevel)
-    {
-      core::get()->set_filter(trivial::severity >= trivial::warning);
-    }
-    else if ("ERROR" == logLevel)
-    {
-      core::get()->set_filter(trivial::severity >= trivial::error);
-    }
-    else if ("FATAL" == logLevel)
-    {
-      core::get()->set_filter(trivial::severity >= trivial::fatal);
-    }
-    else 
-    {
-      core::get()->set_filter(trivial::severity >= trivial::info);
-    }
+    openlog("grader", 0, 0);
+  }
+  
+  logger::~logger()
+  {
+    closelog();
   }
   
   void logger::log(const std::string& msg, severity level)
   {
-    switch (level) 
-    {
-      case TRACE:
-        BOOST_LOG_SEV(m_loggerImpl, boost::log::trivial::trace) << msg;
-        break;
-      case DEBUG:
-        BOOST_LOG_SEV(m_loggerImpl, boost::log::trivial::debug) << msg;
-        break;
-      case INFO:
-        BOOST_LOG_SEV(m_loggerImpl, boost::log::trivial::info) << msg;
-        break;
-      case WARNING:
-        BOOST_LOG_SEV(m_loggerImpl, boost::log::trivial::warning) << msg;
-        break;
-      case ERROR:
-        BOOST_LOG_SEV(m_loggerImpl, boost::log::trivial::error) << msg;
-        break;
-      case FATAL:
-        BOOST_LOG_SEV(m_loggerImpl, boost::log::trivial::fatal) << msg;
-        break;
-    }
+    syslog(level, "%s: %s", grader::to_string(level), msg.c_str());
   }
 
   logger& logger::instance()
@@ -86,10 +26,26 @@ namespace grader
     static logger logger_;
     return logger_;
   }
+  
+  const char* to_string(severity sev)
+  {
+    switch (sev) {
+      case severity::DEBUG:
+        return "@DEBUG";
+      case severity::INFO:
+        return "@INFO";
+      case severity::WARNING:
+        return "@WARNING";
+      case severity::ERROR:
+        return "@ERROR";
+      case severity::FATAL:
+        return "@FATAL";
+    }
+    return "";
+  }
 }
 
 void LOG(const string& msg, grader::severity level)
 {
-  boost::interprocess::scoped_lock<mutex_type> lock(*g_lockLog);
   grader::logger::instance().log(msg, level);
 }
