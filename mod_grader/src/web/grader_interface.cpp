@@ -1,6 +1,7 @@
 #include "grader_interface.hpp"
 #include "task.hpp"
 #include "configuration.hpp"
+#include <signal.h>
 
 using namespace std;
 using namespace grader;
@@ -17,6 +18,7 @@ char* submit_new_task(char* sourceName, char* sourceCont, char* test)
     return nullptr;
   else if (childPid)
   {
+    LOG("Parent: " + std::to_string(getpid()), grader::DEBUG);
     const char* tid = nextTask->id();
     char* tidHeap = (char*) calloc(strlen(tid) + 1, sizeof(char));
     strcpy(tidHeap, tid);
@@ -24,7 +26,9 @@ char* submit_new_task(char* sourceName, char* sourceCont, char* test)
   }
   else 
   {
-    ::daemon(0, 0);
+    LOG("Child: " + std::to_string(getpid()), grader::DEBUG);
+    if (::daemon(0, 0) == -1)
+      LOG(::strerror(errno), grader::ERROR);
     nextTask->run_all();
     exit(EXIT_SUCCESS);
   }
