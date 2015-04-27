@@ -23,8 +23,8 @@ add_library(process_utils SHARED src/utils/process/safe_process.cpp
                                  src/utils/process/process.cpp)
 target_link_libraries(process_utils ${Boost_LIBRARIES})
 
-add_library(grader SHARED src/core/configuration.cpp
-                          src/core/log.cpp
+add_library(grader SHARED src/core/logger.cpp
+                          src/core/configuration.cpp
                           src/core/plugin_manager.cpp
                           src/core/shared_memory.cpp)
                           

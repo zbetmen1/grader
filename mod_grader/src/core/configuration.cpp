@@ -1,5 +1,6 @@
 // Project headers
 #include "configuration.hpp"
+#include "logger.hpp"
 
 // STL headers
 #include <iterator>
@@ -12,7 +13,7 @@ using namespace std;
 
 namespace grader 
 {
-  const string configuration::configuration_path = "/etc/grader/conf.txt";
+  const string configuration::configuration_path = "/etc/grader/configuration.txt";
   CONFIG_DEF(shmem_name);
   CONFIG_DEF(shmem_size);
   CONFIG_DEF(jail_dir);
@@ -31,7 +32,10 @@ namespace grader
   {
     auto keyIt = m_conf.find(key);
     if (keyIt == end(m_conf))
-      throw configuration_exception("Invalid key!");
+    {
+      string msg = "Unknown configuration: '" + key + "'!";
+      THROW_SMART(configuration_exception, msg);
+    }
     
     return keyIt->second;
   }
@@ -46,16 +50,28 @@ namespace grader
   {
     ifstream in(pathToConf);
     if (!in)
-      throw configuration_exception("Couldn't open configuration file for reading!");
+    {
+      glog_st.log(severity::fatal, "Couldn't open configuration file '",
+                  configuration_path,
+                  "'! Is file there? Are permissions right?");
+      exit(EXIT_FAILURE);
+    }
     
-    for (string line; getline(in, line); )
+    unsigned line_num = 1;
+    for (string line; getline(in, line); ++line_num)
     {
       if (line[0] == '#')
         continue;
       
+      // Check if line is meaningful configuration line
       auto equalityPos = line.find('=');
       if (equalityPos == string::npos)
+      {
+        // If line isn't comment (checked at beginning of the loop) and isn't empty then we have config error
+        if (line.find_first_not_of(" \t\r\n") != string::npos)
+          glog_st.log(severity::error, "Configuration in wrong format at line ", line_num, '.');
         continue;
+      }
       
       string key = line.substr(0, equalityPos);
       string val = line.substr(equalityPos + 1);

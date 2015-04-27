@@ -1,5 +1,6 @@
 #include "shared_memory.hpp"
 #include "configuration.hpp"
+#include "logger.hpp"
 
 using namespace std;
 namespace ip = boost::interprocess;
@@ -9,20 +10,33 @@ namespace grader
   shared_memory::shared_memory()
   {
     configuration& conf = configuration::instance();
+    try {
     m_memory = shm_type{ip::open_or_create,
-                        conf.get(configuration::shmem_name).c_str(), 
-                        stoul(conf.get(configuration::shmem_size))};
+                        conf.get($(shmem_name)).c_str(), 
+                        stoul(conf.get($(shmem_size))), nullptr, get_permissions()};
+    } catch(const std::exception& e) {
+      glog_st.log(severity::fatal, "Failed to instantiate shared memory! Reason: '",
+                  e.what(), "'.");
+      exit(EXIT_FAILURE);
+    }
   }
 
   shared_memory::~shared_memory()
   {
     configuration& conf = configuration::instance();
-    boost::interprocess::shared_memory_object::remove(conf.get(configuration::shmem_name).c_str());
+    ip::shared_memory_object::remove(conf.get($(shmem_name)).c_str());
   }
 
   shared_memory& shared_memory::instance()
   {
     static shared_memory memory;
     return memory;
+  }
+  
+  ip::permissions& shared_memory::get_permissions()
+  {
+    static ip::permissions perms;
+    perms.set_unrestricted();
+    return perms;
   }
 }

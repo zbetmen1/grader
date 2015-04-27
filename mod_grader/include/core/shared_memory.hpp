@@ -14,6 +14,7 @@
 #include <boost/interprocess/sync/interprocess_mutex.hpp>
 #include <boost/interprocess/sync/interprocess_condition.hpp>
 #include <boost/interprocess/offset_ptr.hpp>
+#include <boost/interprocess/permissions.hpp>
 
 namespace grader 
 {
@@ -46,6 +47,8 @@ namespace grader
     //////////////////////////////////////////////////////////////////////////////
     explicit shared_memory();
     ~shared_memory();
+    
+    static boost::interprocess::permissions& get_permissions();
   public:
     static shared_memory& instance();
     

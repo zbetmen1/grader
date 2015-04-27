@@ -1,6 +1,7 @@
 // Project headers
 #include "plugin_manager.hpp"
 #include "configuration.hpp"
+#include "logger.hpp"
 
 // STL headers
 #include <sstream>
@@ -21,7 +22,7 @@ namespace grader
   {
     plugin_metadata* metadata = static_cast<plugin_metadata*>(lib.get_c_symbol("metadata"));
     if (!metadata || !metadata->class_name || !metadata->lang_name)
-      throw plugin_exception("No plugin metadata!");
+      THROW_SMART(plugin_exception, "No plugin metadata!");
     
     class_name = metadata->class_name;
     lang_name = metadata->lang_name;
@@ -47,7 +48,10 @@ namespace grader
     fakePlInfo.lang_name = langName;
     auto foundPlugin = m_plugins.find(fakePlInfo);
     if (foundPlugin == end(m_plugins))
-      throw plugin_exception("Plugin not found!");
+    {
+      string msg = "Plugin not found for language '" + langName + "'.";
+      THROW_SMART(plugin_exception, msg);
+    }
     
     return *foundPlugin;
   }
@@ -71,7 +75,10 @@ namespace grader
     
     // Check that everything is OK with plugin directory
     if (!fs::exists(pluginPath) || !fs::is_directory(pluginPath))
-      throw plugin_exception("Invalid plugin directory specified!");
+    {
+      glog_st.log(severity::fatal, "Invalid plugin directory in configuration (file does not exists or it isn't a directory)!");
+      exit(EXIT_FAILURE);
+    }
     
     // Iterate through directory and load plugins
     fs::directory_iterator endIt;
@@ -79,12 +86,28 @@ namespace grader
     {
       if (fs::is_regular_file(it->status()))
       {
+        // Skip all files that are not shared libraries
         fs::path libPath = it->path();
         if (libPath.extension().string() != "so")
           continue;
         
-        plugin_info info{libPath.string()};
-        m_plugins.insert(move(info));
+        // Add new plugin
+        try {
+          plugin_info info{libPath.string()};
+          m_plugins.insert(move(info));
+        } catch(const dynamic::shared_lib_load_failed& e) {
+          glog_st.log(severity::error, 
+                      "Couldn't load shared library on path: '", 
+                      libPath.string(),
+                      "'. Message: '",
+                      e.what(), "'."
+                     );
+        } catch (const plugin_exception& e2)
+        {
+          glog_st.log(severity::error, "Bad plugin on path: '",
+                      libPath.string(),
+                      "'. Message: '", e2.what(), "'.");
+        }
       }
     }
   }

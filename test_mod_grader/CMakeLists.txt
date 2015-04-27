@@ -8,6 +8,7 @@ find_package(Boost 1.54 COMPONENTS system filesystem regex unit_test_framework t
 include_directories( ${Boost_INCLUDE_DIR} )
 add_definitions(-DBOOST_LOG_DYN_LINK)
 
-add_executable(test_mod_grader main.cpp http_tester.cpp)
-link_directories(../mod_grader/build)
-target_link_libraries(test_mod_grader grader ${Boost_LIBRARIES})
+# Include dir
+include_directories(../mod_grader/include/core)
+add_executable(test_mod_grader main.cpp test_configuration.cpp ../mod_grader/src/core/configuration.cpp ../mod_grader/src/core/logger.cpp)
+target_link_libraries(test_mod_grader ${Boost_LIBRARIES})

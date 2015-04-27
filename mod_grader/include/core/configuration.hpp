@@ -1,6 +1,9 @@
 #ifndef CONFIGURATION_HPP
 #define CONFIGURATION_HPP
 
+// Project headers
+#include "smart_exception.hpp"
+
 // STL headers
 #include <unordered_map>
 #include <string>
@@ -8,14 +11,15 @@
 
 #define CONFIG_DECL(name) static const std::string name
 #define CONFIG_DEF(name) const std::string configuration::name = #name
+#define $(key) grader::configuration::key
 
 namespace grader 
 {
-  class configuration_exception: public std::runtime_error 
+  class configuration_exception: public smart_exception
   {
   public:
-    explicit configuration_exception(const std::string& arg)
-    : std::runtime_error(arg)
+    explicit configuration_exception(const std::string& arg, const char* filename, unsigned int line)
+    : smart_exception(arg, filename, line)
     {}
   };
   

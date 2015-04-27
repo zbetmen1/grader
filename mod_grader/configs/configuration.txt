@@ -13,3 +13,6 @@ jail_user_base_name = grader_jail_
 
 # Log
 log_facility = 5
+
+# Intentional error in configuration to test logging 
+error_in_config @ yes!

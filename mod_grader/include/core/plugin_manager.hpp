@@ -2,6 +2,7 @@
 #define PLUGIN_MANAGER_HPP
 
 // Project headers
+#include "smart_exception.hpp"
 #include "dynamic/shared_lib.hpp"
 
 // STL headers
@@ -26,11 +27,11 @@ extern "C"
 
 namespace grader 
 {
-  class plugin_exception: public std::runtime_error 
+  class plugin_exception: public smart_exception
   {
   public:
-    explicit plugin_exception(const std::string& arg)
-    : std::runtime_error(arg)
+    explicit plugin_exception(const std::string& arg, const char* filename, unsigned int line)
+    : smart_exception(arg, filename, line)
     {}
   };
   

@@ -1,3 +1,6 @@
+#ifndef SMART_EXCEPTION_HPP
+#define SMART_EXCEPTION_HPP
+
 #include <stdexcept>
 
 #define THROW_SMART(my_exception, msg) throw my_exception(msg, __FILE__, __LINE__)
@@ -19,3 +22,5 @@ namespace grader
 #endif // DEBUG_BUILD
   };
 }
+
+#endif // SMART_EXCEPTION_HPP
