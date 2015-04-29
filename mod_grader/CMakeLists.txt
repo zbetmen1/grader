@@ -16,6 +16,7 @@ include_directories( ${Boost_INCLUDE_DIR} )
 add_library(dynamic_utils SHARED src/utils/dynamic/object.cpp 
                                  src/utils/dynamic/shared_lib.cpp
                                  src/utils/dynamic/register_creators.cpp)
+target_link_libraries(dynamic_utils dl)
                                  
 # Compile process library
 add_library(process_utils SHARED src/utils/process/safe_process.cpp
@@ -23,13 +24,19 @@ add_library(process_utils SHARED src/utils/process/safe_process.cpp
                                  src/utils/process/process.cpp)
 target_link_libraries(process_utils ${Boost_LIBRARIES})
 
+# Compile network library
+add_library(network_interface SHARED src/utils/network/tcp_connection.cpp
+                                     src/utils/network/tcp_server.cpp)
+target_link_libraries(process_utils ${Boost_LIBRARIES})
+
 add_library(grader SHARED src/core/logger.cpp
                           src/core/configuration.cpp
                           src/core/plugin_manager.cpp
                           src/core/shared_memory.cpp)
                           
-target_link_libraries(grader ${Boost_LIBRARIES} dynamic_utils process_utils)
+target_link_libraries(grader ${Boost_LIBRARIES} dynamic_utils process_utils rt)
 
 # Compile daemon
 add_executable(graderd src/core/daemon.cpp)
-target_link_libraries(graderd grader process_utils ${Boost_LIBRARIES})
+target_link_libraries(graderd grader process_utils network_interface dynamic_utils ${Boost_LIBRARIES})
+

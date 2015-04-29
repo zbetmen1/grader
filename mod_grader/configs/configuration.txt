@@ -3,16 +3,14 @@ shmem_size = 134217728
 shmem_name = GraderShmem01
 
 # Important directories
-jail_dir = /srv/chroot/trusty_amd64
-work_dir = home
-plugin_dir = /home/zbetmen/Documents/grader/mod_grader/build/
-source_base_dir = opt/sources
+work_dir = /home
+plugin_dir = /home/zbetmen/Documents/grader/mod_grader/build
+tests_base_dir = opt/tests
 
-# Grader jail user
-jail_user_base_name = grader_jail_
+# Grader worker config
+worker_user_base_name = grader_worker_
+worker_user_group = grader_workers
+worker_num = 5
 
-# Log
-log_facility = 5
-
-# Intentional error in configuration to test logging 
-error_in_config @ yes!
+# Network
+port = 7777

@@ -38,12 +38,13 @@ namespace grader
     static const std::string configuration_path;
     CONFIG_DECL(shmem_name);
     CONFIG_DECL(shmem_size);
-    CONFIG_DECL(jail_dir);
     CONFIG_DECL(work_dir);
     CONFIG_DECL(plugin_dir);
-    CONFIG_DECL(jail_user_base_name);
-    CONFIG_DECL(source_base_dir);
-    CONFIG_DECL(log_facility);
+    CONFIG_DECL(worker_user_base_name);
+    CONFIG_DECL(tests_base_dir);
+    CONFIG_DECL(port);
+    CONFIG_DECL(worker_num);
+    CONFIG_DECL(worker_user_group);
   private:
     //////////////////////////////////////////////////////////////////////////////
     // Members

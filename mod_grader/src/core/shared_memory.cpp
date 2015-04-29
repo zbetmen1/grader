@@ -13,7 +13,7 @@ namespace grader
     try {
     m_memory = shm_type{ip::open_or_create,
                         conf.get($(shmem_name)).c_str(), 
-                        stoul(conf.get($(shmem_size))), nullptr, get_permissions()};
+                        stoul(conf.get($(shmem_size)))};
     } catch(const std::exception& e) {
       glog_st.log(severity::fatal, "Failed to instantiate shared memory! Reason: '",
                   e.what(), "'.");
@@ -31,12 +31,5 @@ namespace grader
   {
     static shared_memory memory;
     return memory;
-  }
-  
-  ip::permissions& shared_memory::get_permissions()
-  {
-    static ip::permissions perms;
-    perms.set_unrestricted();
-    return perms;
   }
 }

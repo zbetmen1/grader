@@ -1,6 +1,7 @@
 // Project headers
 #include "process/process.hpp"
 #include "autocall.hpp"
+#include "logger.hpp"
 
 // STL headers
 #include <csignal>
@@ -282,8 +283,11 @@ namespace grader
 
   void process::destroy()
   {
-    ::kill(m_childHandle, SIGKILL);
-    int status;
-    ::waitpid(m_childHandle, &status, 0);
+    if (m_childHandle != invalid_handle)
+    {
+      ::kill(m_childHandle, SIGKILL);
+      int status;
+      ::waitpid(m_childHandle, &status, 0);
+    }
   }
 }

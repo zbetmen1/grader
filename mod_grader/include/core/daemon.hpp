@@ -3,6 +3,7 @@
 
 // Project headers
 #include "process/process.hpp"
+#include "smart_exception.hpp"
 
 // STL headers
 #include <vector>
@@ -18,11 +19,11 @@
 
 namespace grader 
 {
-  class daemon_exception: public std::runtime_error 
+  class daemon_exception: public smart_exception
   {
   public:
-    explicit daemon_exception(const char* arg)
-    : std::runtime_error{arg}
+    explicit daemon_exception(const std::string& arg, const char* filename, unsigned int line)
+    : smart_exception(arg, filename, line)
     {}
   };
   
@@ -51,13 +52,11 @@ namespace grader
     daemon(daemon&&) = delete;
     daemon& operator=(daemon&&) = delete;
     
-    ~daemon();
-    
   public:
     static daemon& instance(unsigned n = 0, 
                             const std::string& workingDir = std::string(), 
                             std::function<void(int)> f = std::function<void(int)>());
-    
+  private:
     //////////////////////////////////////////////////////////////////////////////
     // Operations
     //////////////////////////////////////////////////////////////////////////////
@@ -65,6 +64,8 @@ namespace grader
                       ::sighandler_t failure, 
                       ::sighandler_t reinitialization) const;
     
+    static void at_exit();
+                      
     static void handle_daemon_termination(int);
     static void handle_child_failure(int);
     static void handle_reinitialization(int);

@@ -24,6 +24,7 @@ BOOST_AUTO_TEST_CASE(GetFromKey)
   BOOST_CHECK(shmname == "GraderShmem01");
   string shmsize = conf.get($(shmem_size));
   BOOST_CHECK(shmsize == "134217728");
+  cout << conf.get($(work_dir)) << endl;
 }
 
 BOOST_AUTO_TEST_CASE(HasKey)

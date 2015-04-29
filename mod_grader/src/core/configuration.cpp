@@ -16,12 +16,13 @@ namespace grader
   const string configuration::configuration_path = "/etc/grader/configuration.txt";
   CONFIG_DEF(shmem_name);
   CONFIG_DEF(shmem_size);
-  CONFIG_DEF(jail_dir);
   CONFIG_DEF(work_dir);
   CONFIG_DEF(plugin_dir);
-  CONFIG_DEF(jail_user_base_name);
-  CONFIG_DEF(source_base_dir);
-  CONFIG_DEF(log_facility);
+  CONFIG_DEF(worker_user_base_name);
+  CONFIG_DEF(tests_base_dir);
+  CONFIG_DEF(port);
+  CONFIG_DEF(worker_num);
+  CONFIG_DEF(worker_user_group);
   
   configuration::configuration()
   {
