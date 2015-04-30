@@ -5,7 +5,7 @@ shmem_name = GraderShmem01
 # Important directories
 work_dir = /home
 plugin_dir = /home/zbetmen/Documents/grader/mod_grader/build
-tests_base_dir = opt/tests
+tests_base_dir = /opt/tests
 
 # Grader worker config
 worker_user_base_name = grader_worker_

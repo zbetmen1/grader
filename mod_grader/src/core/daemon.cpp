@@ -49,6 +49,8 @@ namespace grader
     
     // Set handlers
     set_handlers(&handle_daemon_termination, &handle_child_failure, &handle_reinitialization);
+    
+    glog_st.log(severity::info, "Daemon started pid=", ::getpid(), ".");
   }
   
   daemon& daemon::instance(unsigned n, const string& workingDir, function<void(int)> f)

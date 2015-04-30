@@ -25,6 +25,7 @@ namespace grader
   
   void tcp_server::handle_accept(tcp_connection::pointer newConnection, const sys::error_code& error)
   {
+    glog_st.log(severity::info, "Accepting connection from ", newConnection->socket().remote_endpoint().address().to_string(), ".");
     if (!error)
     {
       newConnection->start();

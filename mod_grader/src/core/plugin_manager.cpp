@@ -71,7 +71,7 @@ namespace grader
     
     // Get path to plugin dir from configuration
     configuration& conf = configuration::instance();
-    fs::path pluginPath = conf.get(configuration::plugin_dir);
+    fs::path pluginPath = conf.get($(plugin_dir));
     
     // Check that everything is OK with plugin directory
     if (!fs::exists(pluginPath) || !fs::is_directory(pluginPath))

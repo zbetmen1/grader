@@ -42,7 +42,7 @@ namespace grader
     aio::read(m_socket, m_buffer, aio::transfer_all(), err);
     
     // Check if an error occurred
-    if (err)
+    if (err != aio::error::eof && err)
     {
       glog_st.log(severity::error, "Network error! Message: '", err.message(), "'.");
       return;
@@ -175,7 +175,12 @@ namespace grader
       return;
     }
     
+    // Read source content to string
+    string sourceCont{istreambuf_iterator<char>{input}, istreambuf_iterator<char>{}};
+    
     // TODO: Create task, release safety and return task id to client
+    glog_st.log(severity::info, "Creating task from test='", absoluteTestPath, "' source name='", sourceName, "'.\n",
+                "Source content: \n", sourceCont);
     safety.release();
   }
   
